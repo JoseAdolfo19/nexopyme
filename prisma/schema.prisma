@@ -1,0 +1,482 @@
+// NexoPyme — Esquema multi-tenant (base compartida con businessId)
+// MariaDB / MySQL — motor InnoDB con UTF8MB4
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+// ==================== NÚCLEO ====================
+
+model User {
+  id            String   @id @default(cuid())
+  name          String
+  email         String   @unique
+  passwordHash  String
+  emailVerified DateTime?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  businesses     BusinessUser[]
+  ownedBusinesses Business[] @relation("BusinessOwner")
+  branches       Branch[]
+  sales          Sale[]
+  inventoryMoves InventoryMovement[]
+  payments       Payment[]
+  cashRegisters  CashRegister[]
+  cashMovements  CashMovement[]
+  auditLogs      AuditLog[]
+
+  @@map("users")
+}
+
+model Business {
+  id           String   @id @default(cuid())
+  ownerId      String
+  owner        User     @relation("BusinessOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  name         String
+  slug         String   @unique
+  businessType String   @default("otro")
+  ruc          String?
+  razonSocial  String?
+  description  String?
+  phone        String?
+  email        String?
+  address      String?
+  city         String?  @default("Urubamba")
+  department   String?  @default("Cusco")
+  country      String   @default("PE")
+  logoPath     String?
+  currency     String   @default("PEN")
+  modules      Json?
+  settings     Json?
+  status       String   @default("pendiente")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  users          BusinessUser[]
+  branches       Branch[]
+  customers      Customer[]
+  suppliers      Supplier[]
+  categories     Category[]
+  products       Product[]
+  inventoryMoves InventoryMovement[]
+  sales          Sale[]
+  payments       Payment[]
+  documents      Document[]
+  sunatSubs      SunatSubmission[]
+  sunatResp      SunatResponse[]
+  cashRegisters  CashRegister[]
+  cashMovements  CashMovement[]
+  auditLogs      AuditLog[]
+  subscriptions  Subscription[]
+
+  @@index([ownerId])
+  @@map("businesses")
+}
+
+model BusinessUser {
+  id         String   @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role       String   @default("administrador") // administrador, vendedor, contador, almacen
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([businessId, userId])
+  @@map("business_user")
+}
+
+model Branch {
+  id         String   @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  name       String
+  address    String?
+  phone      String?
+  isMain     Boolean  @default(false)
+  status     String   @default("activo")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  sales         Sale[]
+  cashRegisters CashRegister[]
+
+  @@index([businessId])
+  @@map("branches")
+}
+
+// ==================== CLIENTES Y PROVEEDORES ====================
+
+model Customer {
+  id         String   @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  docType    String   @default("DNI") // DNI, RUC, CE, PASAPORTE, OTRO
+  docNumber  String?
+  name       String
+  email      String?
+  phone      String?
+  address    String?
+  city       String?
+  country    String   @default("PE")
+  notes      String?
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  sales     Sale[]
+  documents Document[]
+
+  @@index([businessId, docNumber])
+  @@map("customers")
+}
+
+model Supplier {
+  id         String   @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  name       String
+  docType    String   @default("RUC")
+  docNumber  String?
+  phone      String?
+  email      String?
+  address    String?
+  notes      String?
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([businessId])
+  @@map("suppliers")
+}
+
+// ==================== PRODUCTOS ====================
+
+model Category {
+  id         String   @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  name       String
+  parentId   String?
+  parent     Category? @relation("CategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children   Category[] @relation("CategoryTree")
+  type       String   @default("producto") // producto, servicio
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  products Product[]
+
+  @@index([businessId])
+  @@map("categories")
+}
+
+model Product {
+  id            String   @id @default(cuid())
+  businessId    String
+  business      Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  categoryId    String?
+  category      Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  name          String
+  description   String?
+  code          String?
+  barcode       String?
+  brand         String?
+  type          String   @default("producto") // producto, servicio
+  unit          String   @default("UNIDAD")
+  purchasePrice Decimal  @default(0) @db.Decimal(12, 2)
+  salePrice     Decimal  @default(0) @db.Decimal(12, 2)
+  stock         Decimal  @default(0) @db.Decimal(12, 3)
+  minStock      Decimal  @default(0) @db.Decimal(12, 3)
+  imagePath     String?
+  attributes    Json?
+  trackStock    Boolean  @default(true)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  inventoryMoves InventoryMovement[]
+  saleItems      SaleItem[]
+
+  @@index([businessId, name])
+  @@map("products")
+}
+
+model InventoryMovement {
+  id           String   @id @default(cuid())
+  businessId   String
+  business     Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  productId    String
+  product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  userId       String?
+  user         User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  type         String   @default("ajuste") // entrada, salida, ajuste, venta
+  quantity     Decimal  @db.Decimal(12, 3)
+  stockBefore  Decimal  @default(0) @db.Decimal(12, 3)
+  stockAfter   Decimal  @default(0) @db.Decimal(12, 3)
+  reason       String?
+  referenceId  String?
+  referenceType String?
+  createdAt    DateTime @default(now())
+
+  @@index([businessId, productId, createdAt])
+  @@map("inventory_movements")
+}
+
+// ==================== VENTAS ====================
+
+model Sale {
+  id            String   @id @default(cuid())
+  businessId    String
+  business      Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  branchId      String?
+  branch        Branch?  @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  customerId    String?
+  customer      Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  userId        String?
+  user          User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  saleNumber    String   @unique
+  subtotal      Decimal  @default(0) @db.Decimal(12, 2)
+  discount      Decimal  @default(0) @db.Decimal(12, 2)
+  tax           Decimal  @default(0) @db.Decimal(12, 2)
+  total         Decimal  @default(0) @db.Decimal(12, 2)
+  paymentMethod String   @default("efectivo") // efectivo, yape, plin, tarjeta, transferencia, credito, otro
+  status        String   @default("completada") // completada, anulada, pendiente
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  items     SaleItem[]
+  payments  Payment[]
+  documents Document[]
+
+  @@index([businessId, createdAt])
+  @@map("sales")
+}
+
+model SaleItem {
+  id         String   @id @default(cuid())
+  saleId     String
+  sale       Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  productId  String?
+  product    Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  name       String
+  quantity   Decimal  @db.Decimal(12, 3)
+  price      Decimal  @db.Decimal(12, 2)
+  cost       Decimal  @default(0) @db.Decimal(12, 2)
+  subtotal   Decimal  @db.Decimal(12, 2)
+  attributes Json?
+  createdAt  DateTime @default(now())
+
+  @@index([saleId])
+  @@map("sale_items")
+}
+
+model Payment {
+  id         String   @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  saleId     String?
+  sale       Sale?    @relation(fields: [saleId], references: [id], onDelete: SetNull)
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  method     String   @default("efectivo")
+  amount     Decimal  @db.Decimal(12, 2)
+  reference  String?
+  createdAt  DateTime @default(now())
+
+  @@index([businessId])
+  @@map("payments")
+}
+
+// ==================== COMPROBANTES / SUNAT ====================
+
+model Document {
+  id                String   @id @default(cuid())
+  businessId        String
+  business          Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  saleId            String?
+  sale              Sale?    @relation(fields: [saleId], references: [id], onDelete: SetNull)
+  customerId        String?
+  customer          Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  docType           String   @default("boleta") // boleta, factura, nota_credito, nota_debito
+  series            String   @default("B001")
+  number            Int
+  issueDate         DateTime @default(now())
+  customerDocType   String?
+  customerDocNumber String?
+  customerName      String?
+  customerAddress   String?
+  subtotal          Decimal  @default(0) @db.Decimal(12, 2)
+  tax               Decimal  @default(0) @db.Decimal(12, 2)
+  total             Decimal  @default(0) @db.Decimal(12, 2)
+  status            String   @default("pendiente") // pendiente, enviando, aceptado, aceptado_observacion, rechazado, error
+  hash              String?  @unique
+  xmlPath           String?
+  cdrPath           String?
+  pdfPath           String?
+  sunatResponse     String?
+  ticket            String?
+  cdrCode           String?
+  cdrDescription    String?
+  relatedDocument   String?
+  isContingency     Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  sunatSubs SunatSubmission[]
+  sunatResp SunatResponse[]
+
+  @@unique([businessId, series, number])
+  @@index([businessId, status])
+  @@map("documents")
+}
+
+model SunatSubmission {
+  id             String    @id @default(cuid())
+  businessId     String
+  business       Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  documentId     String
+  document       Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  attempt        Int       @default(1)
+  status         String    @default("pendiente")
+  endpoint       String?
+  requestPayload String?
+  responsePayload String?
+  errorCode      String?
+  errorMessage   String?
+  nextRetryAt    DateTime?
+  createdAt      DateTime  @default(now())
+
+  sunatResp SunatResponse[]
+
+  @@index([businessId, status, nextRetryAt])
+  @@map("sunat_submissions")
+}
+
+model SunatResponse {
+  id           String   @id @default(cuid())
+  businessId   String
+  business     Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  documentId   String
+  document     Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  submissionId String?
+  submission   SunatSubmission? @relation(fields: [submissionId], references: [id], onDelete: SetNull)
+  cdrCode      String?
+  cdrDescription String?
+  rawResponse  String?
+  cdrPath      String?
+  createdAt    DateTime @default(now())
+
+  @@index([businessId])
+  @@map("sunat_responses")
+}
+
+// ==================== CAJA ====================
+
+model CashRegister {
+  id             String    @id @default(cuid())
+  businessId     String
+  business       Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  branchId       String?
+  branch         Branch?   @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  userId         String?
+  user           User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  openingAmount  Decimal   @default(0) @db.Decimal(12, 2)
+  closingAmount  Decimal?  @db.Decimal(12, 2)
+  expectedAmount Decimal?  @db.Decimal(12, 2)
+  difference     Decimal?  @db.Decimal(12, 2)
+  status         String    @default("abierta")
+  openedAt       DateTime  @default(now())
+  closedAt       DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  cashMovements CashMovement[]
+
+  @@index([businessId, status])
+  @@map("cash_registers")
+}
+
+model CashMovement {
+  id             String       @id @default(cuid())
+  businessId     String
+  business       Business     @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  cashRegisterId String?
+  cashRegister   CashRegister? @relation(fields: [cashRegisterId], references: [id], onDelete: SetNull)
+  userId         String?
+  user           User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  type           String       @default("ingreso") // ingreso, egreso
+  amount         Decimal      @db.Decimal(12, 2)
+  reason         String?
+  referenceId    String?
+  referenceType  String?
+  createdAt      DateTime     @default(now())
+
+  @@index([businessId])
+  @@map("cash_movements")
+}
+
+// ==================== PLANES / SUSCRIPCIONES ====================
+
+model Plan {
+  id        String   @id @default(cuid())
+  name      String
+  code      String   @unique
+  price     Decimal  @default(0) @db.Decimal(10, 2)
+  limits    Json?
+  features  Json?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  subscriptions Subscription[]
+  @@map("plans")
+}
+
+model Subscription {
+  id         String   @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  planId     String
+  plan       Plan     @relation(fields: [planId], references: [id], onDelete: Cascade)
+  status     String   @default("activa") // activa, pendiente, cancelada, vencida
+  startsAt   DateTime?
+  endsAt     DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([businessId])
+  @@map("subscriptions")
+}
+
+// ==================== AUDITORÍA ====================
+
+model AuditLog {
+  id          String    @id @default(cuid())
+  businessId  String?
+  business    Business? @relation(fields: [businessId], references: [id], onDelete: SetNull)
+  userId      String?
+  user        User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action      String
+  entityType  String?
+  entityId    String?
+  oldValues   Json?
+  newValues   Json?
+  ip          String?
+  createdAt   DateTime  @default(now())
+
+  @@index([businessId, createdAt])
+  @@map("audit_logs")
+}

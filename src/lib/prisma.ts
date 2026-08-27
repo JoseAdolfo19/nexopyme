@@ -1,0 +1,17 @@
+import { PrismaMariaDb } from "@prisma/adapter-mariadb";
+import { PrismaClient } from "@/generated/prisma/client";
+
+const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
+
+function createClient() {
+  const adapter = new PrismaMariaDb(
+    process.env.DATABASE_URL ?? "mysql://root:@127.0.0.1:3306/nexopyme"
+  );
+  return new PrismaClient({ adapter });
+}
+
+export const prisma = globalForPrisma.prisma ?? createClient();
+
+if (process.env.NODE_ENV !== "production") {
+  globalForPrisma.prisma = prisma;
+}
