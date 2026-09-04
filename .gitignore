@@ -49,3 +49,6 @@ next-env.d.ts
 
 .vercel
 .env*
+
+# certificado temporal de BD (se genera en el build para migraciones SSL)
+.vercel-ca.pem
