@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, getSession } from "@/lib/auth";
 import { sunatConfigSchema } from "@/lib/validations";
+import { encryptSecret } from "@/lib/crypto";
 import type { Prisma } from "@/generated/prisma/client";
 
 type ActionResult = { error?: string; ok?: boolean };
@@ -36,20 +37,18 @@ export async function saveSunatConfigAction(_prev: ActionResult, formData: FormD
   const settings = (business.settings as Record<string, unknown>) ?? {};
   const sunat = (settings.sunat as Record<string, unknown>) ?? {};
 
-  // Nota: en un MVP real las credenciales deben cifrarse (p. ej. con la clave
-  // de la app) y nunca guardarse en texto plano. Aquí se separan del resto
-  // de settings para que la capa de cifrado se conecte después.
+  // Las credenciales se cifran con AES-256-GCM (clave derivada de AUTH_SECRET)
+  // antes de guardarse. Nunca viajan ni se persisten en texto plano.
   const newSunat = {
     ...sunat,
     ruc: d.ruc,
     razonSocial: d.razonSocial,
     sunatUser: d.sunatUser,
-    // ⚠️ Cifrar antes de guardar en producción
-    sunatPassword: d.sunatPassword ? `encrypted:${d.sunatPassword}` : (sunat.sunatPassword ?? null),
+    sunatPassword: d.sunatPassword ? encryptSecret(d.sunatPassword) : (sunat.sunatPassword ?? null),
     seriesBoleta: d.seriesBoleta,
     seriesFactura: d.seriesFactura,
     environment: d.environment,
-    certificatePassword: d.certificatePassword ? `encrypted:${d.certificatePassword}` : (sunat.certificatePassword ?? null),
+    certificatePassword: d.certificatePassword ? encryptSecret(d.certificatePassword) : (sunat.certificatePassword ?? null),
   };
 
   await prisma.business.update({

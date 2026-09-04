@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { saleSchema } from "@/lib/validations";
 import { getCurrentUser, getSession } from "@/lib/auth";
 import { computeTotals, createDocument, round2 } from "@/lib/sunat";
+import { audit } from "@/lib/audit";
 
 type ActionResult = { error?: string };
 
@@ -73,9 +74,15 @@ export async function createSaleAction(_prev: ActionResult, formData: FormData):
   const totals = computeTotals(subtotalNet, d.docType);
 
   const sale = await prisma.$transaction(async (tx) => {
-    // Número de venta
+    // Serializa las ventas del mismo negocio: `FOR UPDATE` sobre la fila del
+    // negocio impide que dos ventas concurrentes calculen el mismo número.
+    await tx.$queryRaw`SELECT id FROM businesses WHERE id = ${businessId} FOR UPDATE`;
+
     const count = await tx.sale.count({ where: { businessId } });
-    const saleNumber = "V" + String(count + 1).padStart(8, "0");
+    // `saleNumber` es `@unique` GLOBAL en el esquema, así que se antepone un
+    // tag del negocio para evitar colisiones entre empresas distintas.
+    const bizTag = businessId.replace(/-/g, "").slice(0, 8).toUpperCase();
+    const saleNumber = `V${bizTag}-${String(count + 1).padStart(6, "0")}`;
 
     const sale = await tx.sale.create({
       data: {
@@ -144,6 +151,15 @@ export async function createSaleAction(_prev: ActionResult, formData: FormData):
     return sale;
   });
 
+  await audit({
+    action: "sale.create",
+    userId: user.id,
+    businessId,
+    entityType: "Sale",
+    entityId: sale.id,
+    newValues: { saleNumber: sale.saleNumber, total: sale.total, paymentMethod: sale.paymentMethod },
+  });
+
   // Generar comprobante (fuera de la transacción principal para no bloquear
   // la venta si SUNAT tarda).
   try {
@@ -209,6 +225,15 @@ export async function cancelSaleAction(formData: FormData): Promise<void> {
         },
       });
     }
+  });
+
+  await audit({
+    action: "sale.cancel",
+    userId: user.id,
+    businessId,
+    entityType: "Sale",
+    entityId: id,
+    newValues: { status: "anulada", saleNumber: sale.saleNumber },
   });
 
   revalidatePath("/ventas/historial");

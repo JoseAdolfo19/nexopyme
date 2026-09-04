@@ -5,6 +5,7 @@ import { logoutAction } from "@/app/actions/auth";
 import { prisma } from "@/lib/prisma";
 import { MODULE_MENU, businessTypeLabel } from "@/lib/constants";
 import { cn } from "@/lib/cn";
+import BusinessSwitcher from "@/components/BusinessSwitcher";
 
 export default async function AppShell({
   children,
@@ -59,20 +60,13 @@ export default async function AppShell({
           </Link>
 
           {userBusinesses.length > 1 && (
-            <select
-              name="business"
-              defaultValue={businessId ?? ""}
-              onChange={(e) => {
-                if (e.target.value) window.location.href = `/switch-business?to=${e.target.value}`;
-              }}
-              className="hidden rounded-lg border border-neutral-300 bg-white px-2 py-1.5 text-sm sm:block"
-            >
-              {userBusinesses.map((ub) => (
-                <option key={ub.business.id} value={ub.business.id}>
-                  {ub.business.name}
-                </option>
-              ))}
-            </select>
+            <BusinessSwitcher
+              businesses={userBusinesses.map((ub) => ({
+                id: ub.business.id,
+                name: ub.business.name,
+              }))}
+              currentId={businessId ?? ""}
+            />
           )}
 
           <div className="flex items-center gap-2">

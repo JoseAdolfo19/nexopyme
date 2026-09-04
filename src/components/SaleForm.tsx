@@ -233,8 +233,10 @@ export default function SaleForm({
               <label className="mb-1 block text-sm font-semibold text-neutral-700">Comprobante</label>
               <div className="grid grid-cols-2 gap-2">
                 {[
-                  { value: "boleta", label: "Boleta" },
-                  { value: "factura", label: "Factura" },
+                  { value: "boleta", label: "🧾 Boleta" },
+                  { value: "factura", label: "📄 Factura" },
+                  { value: "proforma", label: "📝 Proforma" },
+                  { value: "nota_pedido", label: "📋 Nota de pedido" },
                 ].map((t) => (
                   <button
                     key={t.value}

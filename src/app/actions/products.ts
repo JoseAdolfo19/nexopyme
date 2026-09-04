@@ -2,9 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { prisma } from "@/lib/prisma";
+import { scope } from "@/lib/prisma";
 import { categorySchema, productSchema } from "@/lib/validations";
 import { getCurrentUser, getSession } from "@/lib/auth";
+import { audit } from "@/lib/audit";
 
 type ActionResult = { error?: string };
 
@@ -13,6 +14,7 @@ export async function createProductAction(_prev: ActionResult, formData: FormDat
   const session = await getSession();
   const businessId = session?.businessId;
   if (!user || !businessId) return { error: "Sesión no válida." };
+  const db = scope(businessId);
 
   const parsed = productSchema.safeParse({
     name: formData.get("name"),
@@ -33,7 +35,7 @@ export async function createProductAction(_prev: ActionResult, formData: FormDat
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Revisa los datos." };
   const d = parsed.data;
 
-  await prisma.product.create({
+  await db.product.create({
     data: {
       businessId,
       name: d.name,
@@ -52,6 +54,14 @@ export async function createProductAction(_prev: ActionResult, formData: FormDat
     },
   });
 
+  await audit({
+    action: "product.create",
+    userId: user.id,
+    businessId,
+    entityType: "Product",
+    newValues: { name: d.name, code: d.code, salePrice: d.salePrice },
+  });
+
   revalidatePath("/productos");
   redirect("/productos");
 }
@@ -61,6 +71,7 @@ export async function updateProductAction(_prev: ActionResult, formData: FormDat
   const session = await getSession();
   const businessId = session?.businessId;
   if (!user || !businessId) return { error: "Sesión no válida." };
+  const db = scope(businessId);
 
   const id = String(formData.get("id") ?? "");
   const parsed = productSchema.safeParse({
@@ -82,7 +93,7 @@ export async function updateProductAction(_prev: ActionResult, formData: FormDat
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Revisa los datos." };
   const d = parsed.data;
 
-  await prisma.product.update({
+  await db.product.update({
     where: { id },
     data: {
       name: d.name,
@@ -100,6 +111,15 @@ export async function updateProductAction(_prev: ActionResult, formData: FormDat
     },
   });
 
+  await audit({
+    action: "product.update",
+    userId: user.id,
+    businessId,
+    entityType: "Product",
+    entityId: id,
+    newValues: { name: d.name, code: d.code, salePrice: d.salePrice },
+  });
+
   revalidatePath("/productos");
   redirect("/productos");
 }
@@ -108,9 +128,19 @@ export async function deleteProductAction(formData: FormData): Promise<void> {
   const user = await getCurrentUser();
   const session = await getSession();
   if (!user || !session?.businessId) return;
+  const db = scope(session.businessId);
 
   const id = String(formData.get("id") ?? "");
-  await prisma.product.update({ where: { id }, data: { isActive: false } });
+  await db.product.update({ where: { id }, data: { isActive: false } });
+
+  await audit({
+    action: "product.delete",
+    userId: user.id,
+    businessId: session.businessId,
+    entityType: "Product",
+    entityId: id,
+  });
+
   revalidatePath("/productos");
 }
 
@@ -119,6 +149,7 @@ export async function createCategoryAction(_prev: ActionResult, formData: FormDa
   const session = await getSession();
   const businessId = session?.businessId;
   if (!user || !businessId) return { error: "Sesión no válida." };
+  const db = scope(businessId);
 
   const parsed = categorySchema.safeParse({
     name: formData.get("name"),
@@ -126,8 +157,16 @@ export async function createCategoryAction(_prev: ActionResult, formData: FormDa
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Revisa los datos." };
 
-  await prisma.category.create({
+  await db.category.create({
     data: { businessId, name: parsed.data.name, type: parsed.data.type },
+  });
+
+  await audit({
+    action: "category.create",
+    userId: user.id,
+    businessId,
+    entityType: "Category",
+    newValues: { name: parsed.data.name, type: parsed.data.type },
   });
 
   revalidatePath("/productos");

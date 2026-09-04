@@ -10,9 +10,9 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 ---
 
-# NexoPyme — Multi-Tenant SaaS for SMB Management
+# BizCaja — Multi-Tenant SaaS for SMB Management
 
-**NexoPyme** is a modern SaaS platform designed for small and medium-sized businesses (SMBs) to manage sales, inventory, customers, and compliance. Built with Next.js 16, Prisma 7, and MariaDB.
+**BizCaja** is a modern SaaS platform designed for small and medium-sized businesses (SMBs) to manage sales, inventory, customers, and compliance. Built with Next.js 16, Prisma 7, and MariaDB.
 
 ## Key Characteristics
 

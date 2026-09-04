@@ -24,14 +24,25 @@ export default async function DocumentDetailPage({
   if (!doc) notFound();
 
   const st = DOCUMENT_STATUS[doc.status] ?? DOCUMENT_STATUS.pendiente;
-  const isFactura = doc.docType === "factura";
+  const isInternal = doc.docType === "proforma" || doc.docType === "nota_pedido";
+
+  const docTypeLabel = {
+    boleta: "Boleta electrónica",
+    factura: "Factura electrónica",
+    proforma: "Proforma / Cotización",
+    nota_pedido: "Nota de pedido",
+    nota_credito: "Nota de crédito",
+    nota_debito: "Nota de débito",
+  }[doc.docType] ?? doc.docType;
 
   return (
     <AppShell>
       <div className="mb-4 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-neutral-900">Comprobante</h1>
-          <p className="text-neutral-500">Boleta / Factura electrónica</p>
+          <p className="text-neutral-500">
+            {isInternal ? "Documento interno (no se envía a SUNAT)" : "Boleta / Factura electrónica"}
+          </p>
         </div>
         <button
           onClick={() => window.print()}
@@ -55,7 +66,7 @@ export default async function DocumentDetailPage({
         {/* Tipo de documento */}
         <div className="mt-3 border-b-2 border-dashed border-neutral-300 pb-3 text-center">
           <p className="text-sm font-semibold uppercase tracking-wide text-neutral-500">
-            {isFactura ? "Factura electrónica" : "Boleta electrónica"}
+            {docTypeLabel}
           </p>
           <p className="font-mono text-2xl font-extrabold text-neutral-900">
             {documentNumber(doc.series, doc.number)}
@@ -125,7 +136,12 @@ export default async function DocumentDetailPage({
 
         {/* Pie */}
         <div className="mt-4 border-t border-dashed border-neutral-300 pt-3 text-center text-[11px] text-neutral-400">
-          <p>NexoPyme — Tu negocio, tu sistema</p>
+          <p>BizCaja — Tu negocio, tu sistema</p>
+          {isInternal && (
+            <p className="mt-1 font-semibold text-amber-600">
+              Documento interno — no tiene valor tributario
+            </p>
+          )}
           {doc.cdrDescription && <p className="mt-1 text-neutral-500">{doc.cdrDescription}</p>}
           {doc.cdrCode && <p>CDR: {doc.cdrCode}</p>}
           <p className="mt-2">Gracias por su compra 🇵🇪</p>

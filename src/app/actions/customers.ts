@@ -2,9 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { prisma } from "@/lib/prisma";
+import { scope } from "@/lib/prisma";
 import { customerSchema } from "@/lib/validations";
 import { getCurrentUser, getSession } from "@/lib/auth";
+import { audit } from "@/lib/audit";
 
 type ActionResult = { error?: string };
 
@@ -13,6 +14,7 @@ export async function createCustomerAction(_prev: ActionResult, formData: FormDa
   const session = await getSession();
   const businessId = session?.businessId;
   if (!user || !businessId) return { error: "Sesión no válida." };
+  const db = scope(businessId);
 
   const parsed = customerSchema.safeParse({
     docType: formData.get("doc_type") ?? "DNI",
@@ -30,7 +32,7 @@ export async function createCustomerAction(_prev: ActionResult, formData: FormDa
   }
 
   const d = parsed.data;
-  await prisma.customer.create({
+  await db.customer.create({
     data: {
       businessId,
       docType: d.docType,
@@ -44,6 +46,14 @@ export async function createCustomerAction(_prev: ActionResult, formData: FormDa
     },
   });
 
+  await audit({
+    action: "customer.create",
+    userId: user.id,
+    businessId,
+    entityType: "Customer",
+    newValues: { name: d.name, docType: d.docType, docNumber: d.docNumber },
+  });
+
   revalidatePath("/clientes");
   redirect("/clientes");
 }
@@ -53,6 +63,7 @@ export async function updateCustomerAction(_prev: ActionResult, formData: FormDa
   const session = await getSession();
   const businessId = session?.businessId;
   if (!user || !businessId) return { error: "Sesión no válida." };
+  const db = scope(businessId);
 
   const id = String(formData.get("id") ?? "");
   const parsed = customerSchema.safeParse({
@@ -69,7 +80,7 @@ export async function updateCustomerAction(_prev: ActionResult, formData: FormDa
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Revisa los datos." };
   const d = parsed.data;
 
-  await prisma.customer.update({
+  await db.customer.update({
     where: { id },
     data: {
       docType: d.docType,
@@ -83,6 +94,15 @@ export async function updateCustomerAction(_prev: ActionResult, formData: FormDa
     },
   });
 
+  await audit({
+    action: "customer.update",
+    userId: user.id,
+    businessId,
+    entityType: "Customer",
+    entityId: id,
+    newValues: { name: d.name },
+  });
+
   revalidatePath("/clientes");
   redirect("/clientes");
 }
@@ -92,16 +112,26 @@ export async function deleteCustomerAction(formData: FormData): Promise<void> {
   const session = await getSession();
   const businessId = session?.businessId;
   if (!user || !businessId) return;
+  const db = scope(businessId);
 
   const id = String(formData.get("id") ?? "");
-  const customer = await prisma.customer.findFirst({
-    where: { id, businessId },
+  const customer = await db.customer.findFirst({
+    where: { id },
   });
   if (!customer) return;
-  await prisma.customer.update({
+  await db.customer.update({
     where: { id },
     data: { isActive: false },
   });
+
+  await audit({
+    action: "customer.delete",
+    userId: user.id,
+    businessId,
+    entityType: "Customer",
+    entityId: id,
+  });
+
   revalidatePath("/clientes");
 }
 

@@ -77,7 +77,7 @@ export const categorySchema = z.object({
 export const saleSchema = z.object({
   customerId: z.string().optional().or(z.literal("")),
   paymentMethod: z.enum(["efectivo", "yape", "plin", "tarjeta", "transferencia", "credito", "otro"]),
-  docType: z.enum(["boleta", "factura"]).default("boleta"),
+  docType: z.enum(["boleta", "factura", "proforma", "nota_pedido"]).default("boleta"),
   notes: z.string().max(500).optional().or(z.literal("")),
   items: z.array(z.object({
     productId: z.string().min(1),

@@ -88,6 +88,8 @@ export function paymentMethodLabel(value: string): string {
 export const DOCUMENT_TYPES = [
   { value: "boleta", label: "Boleta" },
   { value: "factura", label: "Factura" },
+  { value: "proforma", label: "Proforma / Cotización" },
+  { value: "nota_pedido", label: "Nota de pedido" },
   { value: "nota_credito", label: "Nota de crédito" },
   { value: "nota_debito", label: "Nota de débito" },
 ] as const;

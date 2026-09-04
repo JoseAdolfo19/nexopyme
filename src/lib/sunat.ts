@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { createHash } from "crypto";
+import type { Prisma } from "@/generated/prisma/client";
 
 /**
  * Servicio de comprobantes electrónicos (SUNAT).
@@ -30,7 +31,7 @@ export type DocumentInput = {
   businessId: string;
   saleId?: string;
   customerId?: string;
-  docType: "boleta" | "factura";
+  docType: "boleta" | "factura" | "proforma" | "nota_pedido";
   customerDocType?: string | null;
   customerDocNumber?: string | null;
   customerName?: string | null;
@@ -38,14 +39,40 @@ export type DocumentInput = {
   totals: DocumentTotals;
 };
 
-export function computeTotals(subtotalNet: number, docType: "boleta" | "factura"): DocumentTotals {
-  // IGV 18%: solo se desglosa en facturas (la boleta va con IGV incluido).
+/**
+ * Tipos de documento que NO se envían a SUNAT (no son comprobantes electrónicos).
+ * Solo se registran como documentos internos del negocio.
+ */
+export const INTERNAL_DOC_TYPES = ["proforma", "nota_pedido"] as const;
+
+export type InternalDocType = (typeof INTERNAL_DOC_TYPES)[number];
+
+export function isInternalDocType(value: string): value is InternalDocType {
+  return (INTERNAL_DOC_TYPES as readonly string[]).includes(value);
+}
+
+/**
+ * Calcula los totales de un documento.
+ *
+ * - factura: desglosa IGV 18% sobre el subtotal (precio SIN IGV).
+ * - boleta: el precio ya incluye IGV, lo desglosa internamente para mostrar.
+ * - proforma / nota_pedido: documentos internos sin tributación, no se
+ *   desglosa IGV. El subtotal coincide con el total y el IGV va en 0.
+ */
+export function computeTotals(
+  subtotalNet: number,
+  docType: "boleta" | "factura" | "proforma" | "nota_pedido",
+): DocumentTotals {
   if (docType === "factura") {
     const tax = round2(subtotalNet * 0.18);
     return { subtotal: round2(subtotalNet), tax, total: round2(subtotalNet + tax) };
   }
-  // Boleta: precio final ya incluye IGV.
-  return { subtotal: round2(subtotalNet), tax: round2(subtotalNet * 0.18), total: round2(subtotalNet) };
+  if (docType === "boleta") {
+    // Boleta: precio final ya incluye IGV.
+    return { subtotal: round2(subtotalNet), tax: round2(subtotalNet * 0.18), total: round2(subtotalNet) };
+  }
+  // Documentos internos: sin IGV.
+  return { subtotal: round2(subtotalNet), tax: 0, total: round2(subtotalNet) };
 }
 
 export function round2(n: number): number {
@@ -53,14 +80,21 @@ export function round2(n: number): number {
 }
 
 /** Serie según tipo de documento (configurable por negocio en el futuro). */
-export function seriesFor(docType: "boleta" | "factura"): string {
-  return docType === "boleta" ? "B001" : "F001";
+export function seriesFor(docType: "boleta" | "factura" | "proforma" | "nota_pedido"): string {
+  if (docType === "boleta") return "B001";
+  if (docType === "factura") return "F001";
+  if (docType === "proforma") return "P001";
+  return "NP001"; // nota_pedido
 }
 
 /** Obtiene el siguiente correlativo seguro para una serie (sin duplicados). */
-export async function nextCorrelative(businessId: string, docType: "boleta" | "factura"): Promise<number> {
+export async function nextCorrelative(
+  businessId: string,
+  docType: "boleta" | "factura" | "proforma" | "nota_pedido",
+  tx: Prisma.TransactionClient = prisma,
+): Promise<number> {
   const series = seriesFor(docType);
-  const last = await prisma.document.findFirst({
+  const last = await tx.document.findFirst({
     where: { businessId, series },
     orderBy: { number: "desc" },
     select: { number: true },
@@ -79,41 +113,52 @@ export function computeHash(payload: string): string {
  */
 export async function createDocument(input: DocumentInput): Promise<{ id: string; series: string; number: number } | null> {
   const series = seriesFor(input.docType);
-  const number = await nextCorrelative(input.businessId, input.docType);
 
-  const existing = await prisma.document.findUnique({
-    where: { businessId_series_number: { businessId: input.businessId, series, number } },
+  // Reserva del correlativo en una transacción con bloqueo de fila del negocio.
+  // `SELECT ... FOR UPDATE` serializa las operaciones del mismo negocio, de modo
+  // que dos ventas concurrentes no obtengan el mismo correlativo (evita chocar
+  // con `@@unique([businessId, series, number])` y el hash único).
+  const doc = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM businesses WHERE id = ${input.businessId} FOR UPDATE`;
+
+    const number = await nextCorrelative(input.businessId, input.docType, tx);
+
+    const existing = await tx.document.findUnique({
+      where: { businessId_series_number: { businessId: input.businessId, series, number } },
+    });
+    if (existing) return null; // idempotencia: no duplicar
+
+    const hashInput = `${input.businessId}|${series}|${number}|${input.totals.total}|${input.customerDocNumber ?? "N/A"}`;
+    const hash = computeHash(hashInput);
+
+    return tx.document.create({
+      data: {
+        businessId: input.businessId,
+        saleId: input.saleId ?? null,
+        customerId: input.customerId ?? null,
+        docType: input.docType,
+        series,
+        number,
+        issueDate: new Date(),
+        customerDocType: input.customerDocType ?? null,
+        customerDocNumber: input.customerDocNumber ?? null,
+        customerName: input.customerName ?? null,
+        customerAddress: input.customerAddress ?? null,
+        subtotal: input.totals.subtotal,
+        tax: input.totals.tax,
+        total: input.totals.total,
+        status: "pendiente",
+        hash,
+      },
+    });
   });
-  if (existing) return null; // idempotencia: no duplicar
 
-  const hashInput = `${input.businessId}|${series}|${number}|${input.totals.total}|${input.customerDocNumber ?? "N/A"}`;
-  const hash = computeHash(hashInput);
+  if (!doc) return null;
 
-  const doc = await prisma.document.create({
-    data: {
-      businessId: input.businessId,
-      saleId: input.saleId ?? null,
-      customerId: input.customerId ?? null,
-      docType: input.docType,
-      series,
-      number,
-      issueDate: new Date(),
-      customerDocType: input.customerDocType ?? null,
-      customerDocNumber: input.customerDocNumber ?? null,
-      customerName: input.customerName ?? null,
-      customerAddress: input.customerAddress ?? null,
-      subtotal: input.totals.subtotal,
-      tax: input.totals.tax,
-      total: input.totals.total,
-      status: "pendiente",
-      hash,
-    },
-  });
-
-  // Disparar envío (en MVP: simulación BETA síncrona).
+  // Disparar envío (en MVP: simulación BETA síncrona) fuera de la transacción.
   await submitDocument(doc.id);
 
-  return { id: doc.id, series, number };
+  return { id: doc.id, series: doc.series, number: doc.number };
 }
 
 /**
@@ -131,6 +176,20 @@ export async function submitDocument(documentId: string): Promise<void> {
   const doc = await prisma.document.findUnique({ where: { id: documentId } });
   if (!doc) return;
   if (doc.status === "aceptado" || doc.status === "aceptado_observacion") return;
+
+  // Documentos internos (proforma, nota_pedido) NO se envían a SUNAT.
+  // Solo se registran como referencia interna del negocio.
+  if (isInternalDocType(doc.docType)) {
+    await prisma.document.update({
+      where: { id: doc.id },
+      data: {
+        status: "aceptado",
+        cdrCode: "INTERNO",
+        cdrDescription: "Documento interno — no requiere envío a SUNAT.",
+      },
+    });
+    return;
+  }
 
   const settings = (await prisma.business.findUnique({
     where: { id: doc.businessId },
@@ -151,7 +210,7 @@ export async function submitDocument(documentId: string): Promise<void> {
   });
 
   // ---- PUNTO DE INTEGRACIÓN REAL ----
-  // Aquí se conectará el cliente SOAP/FTP oficial de SUNAT.
+  // Aquí se conectará el cliente SOAP/FTP oficial de SUNAT o el PSE elegido.
   // Por ahora: simulación de respuesta exitosa en ambiente BETA.
   // -------------------------------------
   const simulatedCdrCode = "0";

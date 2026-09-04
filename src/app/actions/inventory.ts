@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, getSession } from "@/lib/auth";
 import { round2 } from "@/lib/sunat";
+import { audit } from "@/lib/audit";
 
 type ActionResult = { error?: string };
 
@@ -53,6 +54,15 @@ export async function adjustStockAction(_prev: ActionResult, formData: FormData)
         reason: reason || (type === "entrada" ? "Entrada manual" : type === "salida" ? "Salida manual" : "Ajuste manual"),
       },
     });
+  });
+
+  await audit({
+    action: `inventory.${type}`,
+    userId: user.id,
+    businessId,
+    entityType: "Product",
+    entityId: productId,
+    newValues: { stockBefore: before, stockAfter: after, quantity: quantityRaw, reason: reason || null },
   });
 
   revalidatePath("/inventario");

@@ -9,9 +9,9 @@ export default function HomePage() {
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
           <Link href="/" className="flex items-center gap-2">
             <span className="flex size-9 items-center justify-center rounded-xl bg-brand-600 text-lg font-bold text-white">
-              N
+              B
             </span>
-            <span className="text-lg font-bold text-neutral-900">NexoPyme</span>
+            <span className="text-lg font-bold text-neutral-900">BizCaja</span>
           </Link>
           <div className="flex items-center gap-2">
             <Link
@@ -39,7 +39,7 @@ export default function HomePage() {
           Tu negocio, <span className="text-brand-600">tu sistema</span>
         </h1>
         <p className="mx-auto mt-5 max-w-2xl text-lg text-neutral-600">
-          NexoPyme se adapta a tu negocio. Registra ventas, controla tu stock,
+          BizCaja se adapta a tu negocio. Registra ventas, controla tu stock,
           emite comprobantes y entiende cuánto ganas, todo desde tu celular.
           Sin cuadernos, sin Excel complicado, sin sistemas difíciles.
         </p>
@@ -174,7 +174,7 @@ export default function HomePage() {
       {/* FOOTER */}
       <footer className="border-t border-neutral-200 bg-white py-8">
         <div className="mx-auto max-w-6xl px-4 text-center text-sm text-neutral-500">
-          <p className="font-semibold text-neutral-700">NexoPyme</p>
+          <p className="font-semibold text-neutral-700">BizCaja</p>
           <p className="mt-1">Urubamba · Cusco · Perú — "Tu negocio, tu sistema"</p>
         </div>
       </footer>

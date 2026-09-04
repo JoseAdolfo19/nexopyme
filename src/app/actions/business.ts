@@ -4,8 +4,9 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { businessSchema } from "@/lib/validations";
 import { modulesForType } from "@/lib/constants";
-import { getCurrentUser, getSession, setSession } from "@/lib/auth";
+import { getCurrentUser, getSession, setSession, switchBusiness } from "@/lib/auth";
 import { slugify } from "@/lib/format";
+import { audit } from "@/lib/audit";
 
 type ActionResult = { error?: string };
 
@@ -140,15 +141,22 @@ export async function createBusinessAction(
   const session = await getSession();
   await setSession({ ...(session ?? {}), userId: user.id, businessId: business.id });
 
+  await audit({
+    action: "business.create",
+    userId: user.id,
+    businessId: business.id,
+    entityType: "Business",
+    entityId: business.id,
+    newValues: { name: business.name, businessType: business.businessType, modules },
+  });
+
   redirect("/dashboard");
 }
 
 export async function switchBusinessAction(formData: FormData): Promise<void> {
   const to = String(formData.get("business") ?? "");
-  if (!to) redirect("/dashboard");
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
-  const session = await getSession();
-  await setSession({ ...(session ?? {}), userId: user.id, businessId: to });
-  redirect("/dashboard");
+  // switchBusiness() (en auth) verifica que el usuario pertenezca al negocio
+  // antes de cambiar la sesión, evitando acceso a negocios ajenos.
+  const ok = await switchBusiness(to);
+  redirect(ok ? "/dashboard" : "/onboarding");
 }

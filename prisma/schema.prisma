@@ -310,7 +310,7 @@ model Document {
   sale              Sale?    @relation(fields: [saleId], references: [id], onDelete: SetNull)
   customerId        String?
   customer          Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  docType           String   @default("boleta") // boleta, factura, nota_credito, nota_debito
+  docType           String   @default("boleta") // boleta, factura, nota_credito, nota_debito, proforma, nota_pedido
   series            String   @default("B001")
   number            Int
   issueDate         DateTime @default(now())

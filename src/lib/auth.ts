@@ -5,11 +5,12 @@ import { cookies } from "next/headers";
 import { cache } from "react";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { appSecretKey } from "@/lib/secrets";
 
-export const SESSION_COOKIE = "nexopyme_session";
+export const SESSION_COOKIE = "bizcaja_session";
 const SESSION_DURATION = 60 * 60 * 24 * 7; // 7 días
 
-const secret = () => new TextEncoder().encode(process.env.AUTH_SECRET ?? "dev-secret-change-me");
+const secret = () => new TextEncoder().encode(appSecretKey());
 
 export type SessionPayload = {
   userId: string;
@@ -59,6 +60,14 @@ export const getCurrentUser = cache(async () => {
 export async function requireUser() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+
+  // El correo debe estar verificado antes de usar la plataforma.
+  // En dev, sin proveedor de correo, el enlace se muestra en la pantalla
+  // de pendiente y en el log del servidor.
+  if (!user.emailVerified) {
+    redirect(`/verify-email/pending?email=${encodeURIComponent(user.email)}`);
+  }
+
   return user;
 }
 
