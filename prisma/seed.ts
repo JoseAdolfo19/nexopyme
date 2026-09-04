@@ -1,10 +1,9 @@
 import "dotenv/config";
 import { PrismaMariaDb } from "@prisma/adapter-mariadb";
 import { PrismaClient } from "../src/generated/prisma/client";
+import { buildConnectionConfig } from "../src/lib/dbConfig";
 
-const adapter = new PrismaMariaDb(
-  process.env.DATABASE_URL ?? "mysql://root:@127.0.0.1:3306/bizcaja"
-);
+const adapter = new PrismaMariaDb(buildConnectionConfig());
 const prisma = new PrismaClient({ adapter });
 
 const plans = [
