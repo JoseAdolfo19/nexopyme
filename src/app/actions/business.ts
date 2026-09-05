@@ -94,7 +94,7 @@ export async function createBusinessAction(
     },
   };
 
-  // Crear negocio en una transacción: negocio + membresía + sucursal principal + plan free
+  // Crear negocio en una transacción: negocio + membresía + sucursal principal
   const business = await prisma.$transaction(async (tx) => {
     const biz = await tx.business.create({
       data: {
@@ -120,19 +120,6 @@ export async function createBusinessAction(
     await tx.branch.create({
       data: { businessId: biz.id, name: "Principal", address: data.address || null, isMain: true },
     });
-
-    const freePlan = await tx.plan.findUnique({ where: { code: "free" } });
-    if (freePlan) {
-      await tx.subscription.create({
-        data: {
-          businessId: biz.id,
-          planId: freePlan.id,
-          status: "activa",
-          startsAt: new Date(),
-          endsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-        },
-      });
-    }
 
     return biz;
   });

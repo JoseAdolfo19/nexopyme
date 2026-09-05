@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BUSINESS_TYPES, PLANS } from "@/lib/constants";
+import { BUSINESS_TYPES } from "@/lib/constants";
 
 export default function HomePage() {
   return (
@@ -102,54 +102,6 @@ export default function HomePage() {
                 </span>
                 <h3 className="mt-4 text-lg font-bold text-neutral-900">{s.t}</h3>
                 <p className="mt-2 text-neutral-600">{s.d}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* PLANES */}
-      <section className="border-y border-neutral-200 bg-white py-14">
-        <div className="mx-auto max-w-6xl px-4">
-          <h2 className="text-center text-2xl font-bold text-neutral-900 sm:text-3xl">
-            Planes sencillos
-          </h2>
-          <p className="mx-auto mt-3 max-w-2xl text-center text-neutral-600">
-            Precios provisionales en soles, pensados para emprendedores.
-          </p>
-          <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {PLANS.map((p) => (
-              <div
-                key={p.code}
-                className={`flex flex-col rounded-2xl border p-6 ${
-                  p.code === "emprendedor"
-                    ? "border-brand-500 bg-brand-50/50 shadow-lg shadow-brand-600/10"
-                    : "border-neutral-200 bg-white"
-                }`}
-              >
-                <h3 className="text-lg font-bold text-neutral-900">{p.name}</h3>
-                <p className="mt-2 text-3xl font-extrabold text-neutral-900">
-                  {p.price === 0 ? "Gratis" : `S/ ${p.price}`}
-                  {p.price > 0 && <span className="text-base font-medium text-neutral-500">/mes</span>}
-                </p>
-                <ul className="mt-4 flex-1 space-y-2">
-                  {p.features.map((f) => (
-                    <li key={f} className="flex items-start gap-2 text-sm text-neutral-700">
-                      <span className="mt-0.5 text-emerald-600">✓</span>
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-                <Link
-                  href="/register"
-                  className={`mt-6 rounded-xl px-4 py-3 text-center text-sm font-bold ${
-                    p.code === "emprendedor"
-                      ? "bg-brand-600 text-white hover:bg-brand-700"
-                      : "border border-neutral-300 bg-white text-neutral-800 hover:bg-neutral-50"
-                  }`}
-                >
-                  Empezar gratis
-                </Link>
               </div>
             ))}
           </div>

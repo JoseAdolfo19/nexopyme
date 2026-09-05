@@ -111,31 +111,3 @@ export const ROLES = [
   { value: "contador", label: "Contador" },
   { value: "almacen", label: "Almacén" },
 ] as const;
-
-/** Planes del SaaS (precios provisionales, validar con costos reales). */
-export const PLANS = [
-  {
-    code: "free",
-    name: "Free",
-    price: 0,
-    features: ["1 usuario", "Clientes", "Productos", "Ventas", "Funciones básicas", "Límite de comprobantes"],
-  },
-  {
-    code: "emprendedor",
-    name: "Emprendedor",
-    price: 19.9,
-    features: ["Más comprobantes", "Inventario", "Reportes", "Catálogo", "Más usuarios", "WhatsApp"],
-  },
-  {
-    code: "negocio",
-    name: "Negocio",
-    price: 39.9,
-    features: ["Usuarios", "Caja", "Compras", "Proveedores", "Reportes avanzados", "Inventario avanzado"],
-  },
-  {
-    code: "pro",
-    name: "Pro",
-    price: 69.9,
-    features: ["Multiempresa", "Multisucursal", "IA", "API", "Reportes avanzados", "Funciones premium"],
-  },
-] as const;

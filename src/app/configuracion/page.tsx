@@ -1,5 +1,4 @@
 import { requireBusiness } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
 import { modulesForType, businessTypeLabel, PAYMENT_METHODS } from "@/lib/constants";
 import { Card, CardHeader, Badge } from "@/components/ui/Card";
 import AppShell from "@/components/AppShell";
@@ -12,11 +11,6 @@ export default async function SettingsPage() {
 
   const activeModules = (business.modules as string[]) ?? [];
   const allModulesForType = modulesForType(business.businessType);
-  const subscription = await prisma.subscription.findFirst({
-    where: { businessId: business.id, status: "activa" },
-    include: { plan: true },
-    orderBy: { createdAt: "desc" },
-  });
 
   return (
     <AppShell>
@@ -88,23 +82,6 @@ export default async function SettingsPage() {
               Los módulos se activaron automáticamente al crear tu negocio. No se muestran
               funciones que tu negocio no necesita.
             </p>
-          </div>
-        </Card>
-
-        {/* Plan actual */}
-        <Card>
-          <CardHeader title="Plan" subtitle="Tu suscripción actual" />
-          <div className="flex items-center justify-between p-5">
-            <div>
-              <p className="text-lg font-bold text-neutral-900">{subscription?.plan.name ?? "Free"}</p>
-              <p className="text-sm text-neutral-500">
-                {Number(subscription?.plan.price ?? 0) === 0
-                  ? "Gratis"
-                  : `S/ ${Number(subscription?.plan.price ?? 0).toFixed(2)} / mes`}
-                {subscription?.endsAt ? ` · vence: ${subscription.endsAt.toLocaleDateString("es-PE")}` : ""}
-              </p>
-            </div>
-            <Badge className="bg-brand-50 text-brand-700">Activo</Badge>
           </div>
         </Card>
 
