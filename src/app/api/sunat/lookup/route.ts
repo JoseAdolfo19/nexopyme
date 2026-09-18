@@ -1,13 +1,15 @@
 import { NextResponse } from "next/server";
+import { requireUser } from "@/lib/auth";
 import { lookupDocument, LookupError } from "@/lib/lookups/chequea";
 
 /**
  * GET /api/sunat/lookup?docNumber=12345678
  *
- * Devuelve los datos del documento (DNI o RUC) consultando Chequea Perú.
+ * Devuelve los datos del documento (DNI o RUC) consultando API Perú.
  * Requiere sesión iniciada (cualquier usuario autenticado).
  */
 export async function GET(req: Request) {
+  await requireUser();
   const { searchParams } = new URL(req.url);
   const docNumber = (searchParams.get("docNumber") ?? "").trim();
 

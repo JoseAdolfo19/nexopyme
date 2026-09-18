@@ -25,3 +25,44 @@ body {
   color: var(--foreground);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
 }
+
+@media print {
+  @page {
+    size: auto;
+    margin: 0;
+  }
+
+  body {
+    background: #fff;
+  }
+
+  .app-header,
+  .app-nav,
+  .print-page-heading {
+    display: none !important;
+  }
+
+  main {
+    max-width: none !important;
+    padding: 0 !important;
+  }
+
+  .print-document {
+    margin: 0 !important;
+    box-shadow: none !important;
+  }
+
+  .print-ticket {
+    width: 80mm !important;
+    max-width: 80mm !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    padding: 4mm !important;
+    font-size: 11px;
+  }
+
+  .print-note-order {
+    width: 190mm !important;
+    max-width: 190mm !important;
+  }
+}

@@ -1,20 +1,6 @@
-/**
- * Cliente para consulta de DNI y RUC contra Chequea Perú.
- *
- * Documentación del proveedor:
- * - Base URL: https://api.chequeaperu.com
- * - DNI:   GET /api/dni/{dni}
- * - RUC:   GET /api/ruc/{ruc}
- * - Auth:  Authorization: Bearer <token>
- *
- * Plan free: 25,000 consultas de RUC/DNI/Tipo de Cambio al mes.
- *
- * Variables de entorno:
- * - CHEQUEA_TOKEN (obligatoria)
- * - CHEQUEA_BASE_URL (opcional, default: https://api.chequeaperu.com)
- */
+/** Cliente backend para consultas de DNI y RUC contra API Perú. */
 
-const DEFAULT_BASE_URL = "https://api.chequeaperu.com";
+const DEFAULT_BASE_URL = "https://api.apiperu.pe";
 
 export type DniResult = {
   dni: string;
@@ -48,26 +34,29 @@ export class LookupError extends Error {
 }
 
 function getConfig() {
-  const token = process.env.CHEQUEA_TOKEN;
-  const baseUrl = process.env.CHEQUEA_BASE_URL ?? DEFAULT_BASE_URL;
+  const token = process.env.APIPERU_TOKEN;
+  const baseUrl = process.env.APIPERU_BASE_URL ?? DEFAULT_BASE_URL;
   if (!token) {
     throw new LookupError(
-      "Falta configurar CHEQUEA_TOKEN en .env. Obtén tu token en https://chequeaperu.com",
+      "Falta configurar APIPERU_TOKEN en las variables de entorno.",
       "CONFIG_MISSING",
     );
   }
   return { token, baseUrl };
 }
 
-async function request<T>(path: string): Promise<T> {
+async function request<T>(path: string, body: Record<string, string>): Promise<T> {
   const { token, baseUrl } = getConfig();
   const res = await fetch(`${baseUrl}${path}`, {
+    method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
       Accept: "application/json",
+      "Content-Type": "application/json",
     },
-    // Evita caché agresivo del cliente HTTP
+    body: JSON.stringify(body),
     cache: "no-store",
+    signal: AbortSignal.timeout(15_000),
   });
 
   if (!res.ok) {
@@ -83,7 +72,10 @@ async function request<T>(path: string): Promise<T> {
     throw new LookupError(`Error en la consulta (${res.status}).`, "UPSTREAM");
   }
 
-  const data = (await res.json()) as T;
+  const data = (await res.json()) as T & { success?: boolean; message?: string };
+  if (data.success === false) {
+    throw new LookupError(data.message ?? "API Perú no encontró el documento.", "NOT_FOUND");
+  }
   return data;
 }
 
@@ -91,33 +83,41 @@ async function request<T>(path: string): Promise<T> {
  * Normaliza la respuesta del proveedor a la estructura DniResult.
  * Si los campos exactos no coinciden, ajusta aquí sin tocar el resto.
  */
+function unwrap(raw: Record<string, unknown>): Record<string, unknown> {
+  return raw.data && typeof raw.data === "object" && !Array.isArray(raw.data)
+    ? raw.data as Record<string, unknown>
+    : raw;
+}
+
 function normalizeDni(dni: string, raw: Record<string, unknown>): DniResult {
-  const nombres = String(raw.nombres ?? raw.nombre ?? "").trim();
-  const apellidoPaterno = String(raw.apellidoPaterno ?? raw.apellido_paterno ?? raw.ape_paterno ?? "").trim();
-  const apellidoMaterno = String(raw.apellidoMaterno ?? raw.apellido_materno ?? raw.ape_materno ?? "").trim();
+  const data = unwrap(raw);
+  const nombres = String(data.nombres ?? data.nombre ?? "").trim();
+  const apellidoPaterno = String(data.apellido_paterno ?? data.apellidoPaterno ?? data.ape_paterno ?? "").trim();
+  const apellidoMaterno = String(data.apellido_materno ?? data.apellidoMaterno ?? data.ape_materno ?? "").trim();
   return {
     dni,
     nombres,
     apellidoPaterno,
     apellidoMaterno,
-    nombreCompleto: `${nombres} ${apellidoPaterno} ${apellidoMaterno}`.replace(/\s+/g, " ").trim(),
-    direccion: (raw.direccion as string | undefined) ?? null,
-    ubigeo: (raw.ubigeo as string | undefined) ?? null,
+    nombreCompleto: String(data.nombre_completo ?? `${nombres} ${apellidoPaterno} ${apellidoMaterno}`).replace(/\s+/g, " ").trim(),
+    direccion: (data.direccion as string | undefined) ?? null,
+    ubigeo: Array.isArray(data.ubigeo) ? null : (data.ubigeo as string | undefined) ?? null,
   };
 }
 
 function normalizeRuc(ruc: string, raw: Record<string, unknown>): RucResult {
+  const data = unwrap(raw);
   return {
     ruc,
-    razonSocial: String(raw.razonSocial ?? raw.razon_social ?? "").trim(),
-    nombreComercial: (raw.nombreComercial as string | undefined) ?? (raw.nombre_comercial as string | undefined) ?? null,
-    direccion: (raw.direccion as string | undefined) ?? null,
-    estado: (raw.estado as string | undefined) ?? null,
-    condicion: (raw.condicion as string | undefined) ?? null,
-    ubigeo: (raw.ubigeo as string | undefined) ?? null,
-    departamento: (raw.departamento as string | undefined) ?? null,
-    provincia: (raw.provincia as string | undefined) ?? null,
-    distrito: (raw.distrito as string | undefined) ?? null,
+    razonSocial: String(data.razon_social ?? data.razonSocial ?? "").trim(),
+    nombreComercial: (data.nombre_comercial as string | undefined) ?? (data.nombreComercial as string | undefined) ?? null,
+    direccion: (data.direccion as string | undefined) ?? null,
+    estado: (data.estado as string | undefined) ?? null,
+    condicion: (data.condicion as string | undefined) ?? null,
+    ubigeo: Array.isArray(data.ubigeo) ? null : (data.ubigeo as string | undefined) ?? null,
+    departamento: (data.departamento as string | undefined) ?? null,
+    provincia: (data.provincia as string | undefined) ?? null,
+    distrito: (data.distrito as string | undefined) ?? null,
   };
 }
 
@@ -125,14 +125,14 @@ export function lookupDni(dni: string): Promise<DniResult> {
   if (!/^\d{8}$/.test(dni)) {
     return Promise.reject(new LookupError("El DNI debe tener exactamente 8 dígitos.", "BAD_INPUT"));
   }
-  return request<Record<string, unknown>>(`/api/dni/${dni}`).then((raw) => normalizeDni(dni, raw));
+  return request<Record<string, unknown>>("/dni", { dni }).then((raw) => normalizeDni(dni, raw));
 }
 
 export function lookupRuc(ruc: string): Promise<RucResult> {
   if (!/^\d{11}$/.test(ruc)) {
     return Promise.reject(new LookupError("El RUC debe tener exactamente 11 dígitos.", "BAD_INPUT"));
   }
-  return request<Record<string, unknown>>(`/api/ruc/${ruc}`).then((raw) => normalizeRuc(ruc, raw));
+  return request<Record<string, unknown>>("/ruc", { ruc }).then((raw) => normalizeRuc(ruc, raw));
 }
 
 /**

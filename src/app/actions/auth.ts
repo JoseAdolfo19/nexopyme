@@ -53,10 +53,10 @@ export async function registerAction(
   });
 
   // Verificación de correo real: el usuario NO queda verificado automáticamente.
-  // Se genera un token firmado y se "envía" (mailer log-based; sin SMTP aún).
+  // Se genera un token firmado y se envía por correo (Resend) o se registra en log.
   const token = await createEmailVerificationToken(user.id);
   const url = emailVerificationUrl(token);
-  sendVerificationEmail(user.email, url);
+  await sendVerificationEmail(user.email, url);
 
   await setSession({ userId: user.id });
   const devUrl = process.env.NODE_ENV !== "production" ? `&devUrl=${encodeURIComponent(url)}` : "";

@@ -46,6 +46,14 @@ export const customerSchema = z.object({
   address: z.string().max(200).optional().or(z.literal("")),
   city: z.string().max(80).optional().or(z.literal("")),
   notes: z.string().max(500).optional().or(z.literal("")),
+}).superRefine((data, ctx) => {
+  if (!data.docNumber) return;
+  if (data.docType === "DNI" && !/^\d{8}$/.test(data.docNumber)) {
+    ctx.addIssue({ code: "custom", path: ["docNumber"], message: "El DNI debe tener 8 dígitos." });
+  }
+  if (data.docType === "RUC" && !/^\d{11}$/.test(data.docNumber)) {
+    ctx.addIssue({ code: "custom", path: ["docNumber"], message: "El RUC debe tener 11 dígitos." });
+  }
 });
 
 // ==================== PRODUCTOS ====================

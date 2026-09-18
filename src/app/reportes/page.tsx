@@ -14,7 +14,7 @@ export default async function ReportsPage() {
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-  const [salesToday, salesMonth, byProduct, byMethod, byDay, monthSales] = await Promise.all([
+  const [salesToday, salesMonth, byProduct, byMethod, byDay] = await Promise.all([
     prisma.sale.aggregate({
       where: { businessId: business.id, status: "completada", createdAt: { gte: todayStart } },
       _sum: { total: true },
@@ -42,11 +42,6 @@ export default async function ReportsPage() {
       where: { businessId: business.id, status: "completada", createdAt: { gte: monthStart } },
       select: { createdAt: true, total: true },
     }),
-    prisma.sale.aggregate({
-      where: { businessId: business.id, status: "completada", createdAt: { gte: monthStart } },
-      _sum: { total: true },
-      _count: true,
-    }),
   ]);
 
   // Agrupar ventas por día del mes
@@ -59,13 +54,6 @@ export default async function ReportsPage() {
     byDayMap.set(key, cur);
   }
   const byDayList = Array.from(byDayMap.values()).sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, 15);
-
-  // Construir CSV de ventas por día (para exportar)
-  const csvRows = [
-    ["Fecha", "Ventas", "Total"],
-    ...byDayList.map((d) => [d.date, String(d.count), d.total.toFixed(2)]),
-  ];
-  const csv = csvRows.map((r) => r.join(",")).join("\n");
 
   return (
     <AppShell>
@@ -155,11 +143,10 @@ export default async function ReportsPage() {
             title="Ventas por día"
             action={
               <a
-                href={`data:text/csv;charset=utf-8,${encodeURIComponent(csv)}`}
-                download="ventas-por-dia.csv"
+                href="/api/reportes/ventas"
                 className="text-sm font-semibold text-brand-600 hover:underline"
               >
-                ⬇ Exportar CSV
+                ⬇ Exportar Excel
               </a>
             }
           />

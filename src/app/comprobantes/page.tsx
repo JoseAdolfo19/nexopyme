@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireBusiness } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { formatSoles, formatDateTime } from "@/lib/format";
-import { DOCUMENT_STATUS, DOCUMENT_TYPES } from "@/lib/constants";
+import { DOCUMENT_STATUS, documentTypeLabel } from "@/lib/constants";
 import { documentNumber } from "@/lib/sunat";
 import { Card, Badge, EmptyState } from "@/components/ui/Card";
 import AppShell from "@/components/AppShell";
@@ -62,7 +62,7 @@ export default async function DocumentsPage() {
         <div className="space-y-3">
           {documents.map((d) => {
             const st = DOCUMENT_STATUS[d.status] ?? DOCUMENT_STATUS.pendiente;
-            const typeLabel = DOCUMENT_TYPES.find((t) => t.value === d.docType)?.label ?? d.docType;
+            const typeLabel = documentTypeLabel(d.docType);
             return (
               <Card key={d.id} className="p-4">
                 <div className="flex items-start justify-between gap-3">

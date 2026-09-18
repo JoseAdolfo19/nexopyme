@@ -94,6 +94,10 @@ export const DOCUMENT_TYPES = [
   { value: "nota_debito", label: "Nota de débito" },
 ] as const;
 
+export function documentTypeLabel(value: string): string {
+  return DOCUMENT_TYPES.find((type) => type.value === value)?.label ?? value;
+}
+
 export const DOCUMENT_STATUS: Record<string, { label: string; color: string }> = {
   pendiente: { label: "Pendiente", color: "bg-amber-100 text-amber-800" },
   enviando: { label: "Enviando", color: "bg-blue-100 text-blue-800" },

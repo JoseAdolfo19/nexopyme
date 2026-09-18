@@ -3,6 +3,7 @@ import { requireBusiness } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { formatSoles, formatDateTime } from "@/lib/format";
 import { paymentMethodLabel } from "@/lib/constants";
+import { documentTypeLabel } from "@/lib/constants";
 import { Card, Badge, EmptyState } from "@/components/ui/Card";
 import AppShell from "@/components/AppShell";
 import { cancelSaleAction } from "@/app/actions/sales";
@@ -77,7 +78,7 @@ export default async function SalesHistoryPage() {
                     {paymentMethodLabel(s.paymentMethod)}
                     {s.documents[0] && (
                       <span className="ml-2">
-                        📄 {s.documents[0].docType === "boleta" ? "Boleta" : "Factura"} {s.documents[0].series}-{String(s.documents[0].number).padStart(8, "0")}
+                        📄 {documentTypeLabel(s.documents[0].docType)} {s.documents[0].series}-{String(s.documents[0].number).padStart(8, "0")}
                       </span>
                     )}
                   </p>

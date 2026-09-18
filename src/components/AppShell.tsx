@@ -4,7 +4,6 @@ import { getCurrentUser, getSession } from "@/lib/auth";
 import { logoutAction } from "@/app/actions/auth";
 import { prisma } from "@/lib/prisma";
 import { MODULE_MENU, businessTypeLabel } from "@/lib/constants";
-import { cn } from "@/lib/cn";
 import BusinessSwitcher from "@/components/BusinessSwitcher";
 
 export default async function AppShell({
@@ -43,7 +42,7 @@ export default async function AppShell({
   return (
     <div className="min-h-screen bg-neutral-50">
       {/* Header superior */}
-      <header className="sticky top-0 z-30 border-b border-neutral-200 bg-white/95 backdrop-blur">
+      <header className="app-header sticky top-0 z-30 border-b border-neutral-200 bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3">
           <Link href="/dashboard" className="flex items-center gap-2">
             <span className="flex size-9 items-center justify-center rounded-xl bg-brand-600 text-lg font-bold text-white">
@@ -87,7 +86,7 @@ export default async function AppShell({
       <main className="mx-auto w-full max-w-5xl px-4 pb-24 pt-5">{children}</main>
 
       {/* Navegación inferior (mobile-first) */}
-      <nav className="fixed bottom-0 left-0 right-0 z-30 border-t border-neutral-200 bg-white pb-[env(safe-area-inset-bottom)]">
+      <nav className="app-nav fixed bottom-0 left-0 right-0 z-30 border-t border-neutral-200 bg-white pb-[env(safe-area-inset-bottom)]">
         <div className="mx-auto flex max-w-5xl items-stretch justify-around overflow-x-auto">
           {menuItems.slice(0, 6).map((item) => (
             <Link

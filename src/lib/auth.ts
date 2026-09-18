@@ -48,12 +48,17 @@ export const getCurrentUser = cache(async () => {
   const session = await getSession();
   if (!session?.userId) return null;
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.userId },
-  });
-  if (!user || !user.isActive) return null;
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: session.userId },
+    });
+    if (!user || !user.isActive) return null;
 
-  return user;
+    return user;
+  } catch (error) {
+    console.error("[auth] No se pudo cargar el usuario actual:", error);
+    return null;
+  }
 });
 
 /** Requiere sesión; redirige a /login si no la hay. */
@@ -79,17 +84,22 @@ export async function requireBusiness() {
   const businessId = session?.businessId;
   if (!businessId) redirect("/onboarding");
 
-  const business = await prisma.business.findFirst({
-    where: {
-      id: businessId,
-      users: { some: { userId: user.id, isActive: true } },
-    },
-    include: { users: true },
-  });
+  try {
+    const business = await prisma.business.findFirst({
+      where: {
+        id: businessId,
+        users: { some: { userId: user.id, isActive: true } },
+      },
+      include: { users: true },
+    });
 
-  if (!business) redirect("/onboarding");
+    if (!business) redirect("/onboarding");
 
-  return { user, business };
+    return { user, business };
+  } catch (error) {
+    console.error("[auth] No se pudo cargar el negocio activo:", error);
+    redirect("/login");
+  }
 }
 
 export async function setSession(payload: SessionPayload) {
@@ -114,12 +124,17 @@ export async function switchBusiness(businessId: string) {
   const user = await getCurrentUser();
   if (!user) return false;
 
-  const membership = await prisma.businessUser.findFirst({
-    where: { userId: user.id, businessId, isActive: true },
-  });
-  if (!membership) return false;
+  try {
+    const membership = await prisma.businessUser.findFirst({
+      where: { userId: user.id, businessId, isActive: true },
+    });
+    if (!membership) return false;
 
-  const session = await getSession();
-  await setSession({ ...(session ?? {}), userId: user.id, businessId });
-  return true;
+    const session = await getSession();
+    await setSession({ ...(session ?? {}), userId: user.id, businessId });
+    return true;
+  } catch (error) {
+    console.error("[auth] No se pudo cambiar de negocio:", error);
+    return false;
+  }
 }

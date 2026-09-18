@@ -49,6 +49,14 @@ export async function createSaleAction(_prev: ActionResult, formData: FormData):
 
   const d = parsed.data;
 
+  if (d.customerId) {
+    const customer = await prisma.customer.findFirst({
+      where: { id: d.customerId, businessId, isActive: true },
+      select: { id: true },
+    });
+    if (!customer) return { error: "El cliente seleccionado no pertenece a este negocio." };
+  }
+
   const productIds = d.items.map((i) => i.productId);
   const products = await prisma.product.findMany({
     where: { id: { in: productIds }, businessId, isActive: true },
@@ -149,7 +157,7 @@ export async function createSaleAction(_prev: ActionResult, formData: FormData):
     });
 
     return sale;
-  });
+  }, { maxWait: 10_000, timeout: 15_000 });
 
   await audit({
     action: "sale.create",
@@ -162,12 +170,13 @@ export async function createSaleAction(_prev: ActionResult, formData: FormData):
 
   // Generar comprobante (fuera de la transacción principal para no bloquear
   // la venta si SUNAT tarda).
+  let documentId: string | null = null;
   try {
     const customer = d.customerId
-      ? await prisma.customer.findUnique({ where: { id: d.customerId } })
+      ? await prisma.customer.findFirst({ where: { id: d.customerId, businessId } })
       : null;
 
-    await createDocument({
+    const document = await createDocument({
       businessId,
       saleId: sale.id,
       customerId: customer?.id,
@@ -178,6 +187,7 @@ export async function createSaleAction(_prev: ActionResult, formData: FormData):
       customerAddress: customer?.address ?? null,
       totals,
     });
+    documentId = document?.id ?? null;
   } catch {
     // La venta queda registrada; el comprobante se reintentará desde
     // el job de sincronización (documentos pendientes).
@@ -185,7 +195,7 @@ export async function createSaleAction(_prev: ActionResult, formData: FormData):
 
   revalidatePath("/dashboard");
   revalidatePath("/ventas/historial");
-  redirect("/ventas/historial");
+  redirect(documentId ? `/comprobantes/${documentId}?print=1` : "/ventas/historial");
 }
 
 export async function cancelSaleAction(formData: FormData): Promise<void> {

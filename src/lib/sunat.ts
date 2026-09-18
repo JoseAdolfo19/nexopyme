@@ -54,8 +54,8 @@ export function isInternalDocType(value: string): value is InternalDocType {
 /**
  * Calcula los totales de un documento.
  *
- * - factura: desglosa IGV 18% sobre el subtotal (precio SIN IGV).
- * - boleta: el precio ya incluye IGV, lo desglosa internamente para mostrar.
+ * - factura y boleta: el precio de venta ya incluye IGV; solo se desglosa
+ *   internamente para mostrar la base imponible y el impuesto.
  * - proforma / nota_pedido: documentos internos sin tributación, no se
  *   desglosa IGV. El subtotal coincide con el total y el IGV va en 0.
  */
@@ -63,13 +63,11 @@ export function computeTotals(
   subtotalNet: number,
   docType: "boleta" | "factura" | "proforma" | "nota_pedido",
 ): DocumentTotals {
-  if (docType === "factura") {
-    const tax = round2(subtotalNet * 0.18);
-    return { subtotal: round2(subtotalNet), tax, total: round2(subtotalNet + tax) };
-  }
-  if (docType === "boleta") {
-    // Boleta: precio final ya incluye IGV.
-    return { subtotal: round2(subtotalNet), tax: round2(subtotalNet * 0.18), total: round2(subtotalNet) };
+  if (docType === "factura" || docType === "boleta") {
+    const total = round2(subtotalNet);
+    const subtotal = round2(total / 1.18);
+    const tax = round2(total - subtotal);
+    return { subtotal, tax, total };
   }
   // Documentos internos: sin IGV.
   return { subtotal: round2(subtotalNet), tax: 0, total: round2(subtotalNet) };
@@ -151,7 +149,7 @@ export async function createDocument(input: DocumentInput): Promise<{ id: string
         hash,
       },
     });
-  });
+  }, { maxWait: 10_000, timeout: 15_000 });
 
   if (!doc) return null;
 

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { PAYMENT_METHODS } from "@/lib/constants";
 import { formatSoles } from "@/lib/format";
 import { cn } from "@/lib/cn";
+import SaleCustomerPicker, { type SaleCustomer } from "@/components/SaleCustomerPicker";
 
 type ProductItem = {
   id: string;
@@ -15,13 +16,6 @@ type ProductItem = {
   stock: number;
   type: string;
   unit: string;
-};
-
-type CustomerOption = {
-  id: string;
-  name: string;
-  docNumber: string | null;
-  docType: string;
 };
 
 type CartLine = {
@@ -39,7 +33,7 @@ export default function SaleForm({
   customers,
 }: {
   products: ProductItem[];
-  customers: CustomerOption[];
+  customers: SaleCustomer[];
 }) {
   const [cart, setCart] = useState<CartLine[]>([]);
   const [query, setQuery] = useState("");
@@ -103,7 +97,7 @@ export default function SaleForm({
           <div className="mt-3 grid max-h-72 grid-cols-2 gap-2 overflow-y-auto sm:grid-cols-3 lg:max-h-[420px]">
             {filtered.length === 0 && (
               <p className="col-span-full py-6 text-center text-sm text-neutral-500">
-                No encontramos productos. Regístralos en "Mis productos".
+                No encontramos productos. Regístralos en &quot;Mis productos&quot;.
               </p>
             )}
             {filtered.map((p) => (
@@ -130,20 +124,7 @@ export default function SaleForm({
         <form action={formAction} className="rounded-2xl border border-neutral-200 bg-white p-4">
           {/* Cliente */}
           <div className="mb-3">
-            <label className="mb-1 block text-sm font-semibold text-neutral-700">Cliente</label>
-            <select
-              name="customer_id"
-              value={customerId}
-              onChange={(e) => setCustomerId(e.target.value)}
-              className="w-full rounded-xl border border-neutral-300 bg-white px-4 py-3 text-base"
-            >
-              <option value="">Cliente ocasional (sin datos)</option>
-              {customers.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name} {c.docNumber ? `· ${c.docType} ${c.docNumber}` : ""}
-                </option>
-              ))}
-            </select>
+            <SaleCustomerPicker customers={customers} value={customerId} onChange={setCustomerId} />
           </div>
 
           {/* Carrito */}

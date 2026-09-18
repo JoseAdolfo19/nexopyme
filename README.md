@@ -4,10 +4,64 @@
 
 Sistema SaaS multi-tenant hecho para pequeños negocios del Perú. Registra
 ventas, controla inventario, gestiona clientes y proveedores, emite
-comprobantes (boleta/factura) y genera reportes. Se adapta a tu tipo de
+comprobantes, imprime tickets y genera reportes. Se adapta a tu tipo de
 negocio y funciona desde el celular.
 
-**Stack:** Next.js 16 (App Router) · Prisma 7 + MariaDB · React 19 · Tailwind 4 · Zod · JWT.
+**Stack:** Next.js 16 (App Router) · Prisma 7 + PostgreSQL · React 19 · Tailwind 4 · Zod · JWT · `xlsx` · `qrcode`.
+
+---
+
+## 🧪 Tests
+
+Suite con **Vitest** (unidad). Se ejecutan en Node sin base de datos:
+
+```bash
+npm test          # ejecuta la suite una vez
+npm run test:watch # modo watch
+npm run test:user  # crea/renueva usuario demo con negocio de prueba
+```
+
+Cobertura actual: validaciones Zod (`validations`), cálculo de totales con IGV
+incluido, QR de comprobantes, token de verificación de email y mailer (modo dev
+y producción vía mock de `fetch`). Los módulos de servidor se testean
+mockeando `server-only` (ver `test/setup.ts`).
+
+### Usuario de pruebas
+
+Para crear o renovar una cuenta demo verificada, con negocio, sucursal y plan
+Free asociados:
+
+```bash
+npm run test:user
+```
+
+El comando genera una contraseña aleatoria y muestra las credenciales en la
+terminal. Usa `TEST_USER_EMAIL` y `TEST_USER_PASSWORD` si necesitas fijarlas.
+
+---
+
+## 💾 Backup de base de datos
+
+`scripts/backup-db.mjs` intenta volcar la BD con `mysqldump` y **sube el backup a
+Aiven Object Storage** (S3-compatible), conservando solo las últimas `N` copias
+en el bucket.
+
+```bash
+npm run backup:db              # usa DATABASE_URL y las credenciales AIVEN_S3_*
+npm run backup:db -- --keep 14 # conservar las últimas 14 copias
+npm run backup:db -- --keep-local  # además deja una copia en ./backups
+```
+
+- **Destino:** bucket de Aiven Object Storage (variables `AIVEN_S3_*`).
+- **Retención:** por defecto 30 backups (ajustable con `--keep` o
+  `AIVEN_S3_BACKUP_KEEP`); elimina automáticamente las copias más antiguas.
+- **Requiere** `mysqldump` en el PATH (incluido en XAMPP/MariaDB) y las 4
+  credenciales de Aiven Object Storage en el entorno. La conexión actual de
+  la aplicación es PostgreSQL; este script de backup debe adaptarse a
+  `pg_dump` antes de usarse para esa base de datos.
+
+> Nota: Aiven ya hace backups automáticos del servicio de BD gestionado; este
+> script sirve para copias portables bajo tu control en Object Storage.
 
 ---
 
@@ -45,13 +99,34 @@ proveedores), ropa (tallas, colores, variantes), etc.
 
 ### 👥 Clientes y proveedores
 - Tipos de documento: **DNI, RUC, CE, Pasaporte, Otro**.
-- **Consulta automática de DNI y RUC** contra Chequea Perú (`CHEQUEA_TOKEN`).
+- **Consulta automática de DNI y RUC** contra API Perú (`APIPERU_TOKEN`).
 - Gestión de proveedores y compras.
 
 ### 🧾 Comprobantes / SUNAT (beta)
-- Emisión de boletas, facturas, notas de crédito/débito y proformas.
-- Series: `B001` (boleta) y `F001` (factura).
-- Envío a SUNAT en fase **beta** (entorno hardcodeado a beta).
+- Emisión simulada de boletas y facturas, además de proformas y notas de pedido.
+- Series: `B001` (boleta), `F001` (factura), `P001` (proforma) y `NP001` (nota de pedido).
+- El tipo elegido en la venta se conserva en el documento y en el historial.
+- Boletas y facturas usan un ticket común de 80 mm; las notas de pedido usan una plantilla amplia con tabla y firmas.
+- Cada boleta y factura incluye un QR generado en servidor con los datos del comprobante.
+- La impresión oculta la interfaz de BizCaja y permite imprimir o guardar como PDF.
+- La comunicación con SUNAT continúa simulada; el QR no es verificable oficialmente hasta firmar, enviar y aceptar el CPE.
+
+### 👤 Clientes en el momento de vender
+- Busca clientes por DNI o RUC desde el formulario de venta.
+- Consulta los datos mediante API Perú usando peticiones `POST` desde el backend.
+- Si no existe, permite registrarlo y agregarlo inmediatamente a la venta y al comprobante.
+- El alta es idempotente por documento dentro del negocio: no crea duplicados.
+- DNI y RUC se validan con 8 y 11 dígitos respectivamente.
+
+### 📊 Reportes y exportación
+- El reporte de ventas se exporta como archivo Excel `.xlsx`, no CSV.
+- La descarga está protegida por sesión y aislada por `businessId`.
+- La ruta de descarga es `/api/reportes/ventas`.
+
+### 💰 Precios e IGV
+- Los precios de venta ingresados en productos se consideran precios finales con IGV incluido.
+- Una venta de S/ 60.00 queda con subtotal S/ 50.85, IGV S/ 9.15 y total S/ 60.00 en boleta o factura.
+- Proformas y notas de pedido son documentos internos sin IGV.
 
 ### 💳 Métodos de pago
 Efectivo, **Yape**, **Plin**, tarjeta, transferencia, crédito y otro.
@@ -60,20 +135,12 @@ Efectivo, **Yape**, **Plin**, tarjeta, transferencia, crédito y otro.
 - Control de stock por producto con unidades decimales (ej. 0.5 kg).
 - Movimientos de inventario con auditoría completa (stock antes/después).
 
-### 💰 Planes de suscripción
-| Plan | Precio (S/ /mes) | Destacado |
-|------|------------------|-----------|
-| Free | 0 | 1 usuario, funciones básicas |
-| Emprendedor | 19.90 | Más comprobantes, inventario, reportes |
-| Negocio | 39.90 | Caja, compras, proveedores |
-| Pro | 69.90 | Multiempresa, multisucursal, API, IA |
-
 ---
 
 ## 🧰 Requisitos
 
 - **Node.js** 20+ y npm
-- **MariaDB / MySQL** 10.4+ (XAMPP recomendado en Windows)
+- **PostgreSQL** compatible con Prisma 7 (Supabase configurado actualmente)
 
 ---
 
@@ -85,7 +152,8 @@ npm install
 ```
 
 ### 2. Configurar variables de entorno
-Crea el archivo `.env` en la raíz (ver [Variables de entorno](#variables-de-entorno)).
+Crea o completa el archivo único `.env` en la raíz (ver [Variables de entorno](#variables-de-entorno)).
+No uses un `.env.local` separado en este proyecto.
 
 ### 3. Preparar la base de datos
 ```bash
@@ -113,15 +181,31 @@ npm run lint       # Validación ESLint
 
 | Variable | Obligatoria | Descripción |
 |----------|:-----------:|-------------|
-| `DATABASE_URL` | ✅ | Cadena de conexión a MariaDB. Ej.: `mysql://root:@127.0.0.1:3306/nexopyme` |
+| `DATABASE_URL` | ✅ | Cadena de conexión PostgreSQL usada por Prisma y el adaptador `pg` |
 | `AUTH_SECRET` | ✅ | Clave secreta para firmar sesiones JWT. Generar con `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
 | `NEXT_PUBLIC_APP_NAME` | ❌ | Nombre de la marca mostrado al usuario (por defecto `NexoPyme`) |
 | `NEXT_PUBLIC_APP_URL` | ❌ | URL pública de la app (por defecto `http://localhost:3000`) |
-| `CHEQUEA_TOKEN` | ❌* | Token de la API **Chequea Perú** para consultar DNI/RUC. Necesario solo si usas esa función |
-| `CHEQUEA_BASE_URL` | ❌ | URL base de Chequea Perú (por defecto `https://api.chequea.pe`) |
+| `APIPERU_TOKEN` | ❌* | Token privado de API Perú para consultar DNI/RUC |
+| `APIPERU_BASE_URL` | ❌ | URL base de API Perú (por defecto `https://api.apiperu.pe`) |
+| `RESEND_API_KEY` | ❌** | API key de **Resend** para enviar correos transaccionales (verificación de email) |
+| `EMAIL_FROM` | ❌ | Remitente verificado en Resend, p. ej. `BizCaja <no-reply@tudominio.com>`. Por defecto `no-reply@resend.dev` |
+| `AIVEN_S3_ENDPOINT` | ❌*** | Endpoint de **Aiven Object Storage** (S3-compatible) para subir backups |
+| `AIVEN_S3_ACCESS_KEY` | ❌*** | Access key de Aiven Object Storage |
+| `AIVEN_S3_SECRET_KEY` | ❌*** | Secret key de Aiven Object Storage |
+| `AIVEN_S3_BUCKET` | ❌*** | Bucket de Aiven Object Storage |
+| `AIVEN_S3_REGION` | ❌ | Región del bucket (por defecto `us-east-1`; Aiven lo ignora) |
+| `AIVEN_S3_BACKUP_KEEP` | ❌ | Nº de backups a conservar en el bucket (por defecto 30) |
 
-\* Sin `CHEQUEA_TOKEN`, la consulta automática de DNI/RUC devuelve error;
+\* Sin `APIPERU_TOKEN`, la consulta automática de DNI/RUC devuelve error;
 el resto del sistema funciona normalmente.
+
+\*\* Sin `RESEND_API_KEY`, el correo de verificación NO se envía: el sistema
+registra el enlace en consola/log (`[mailer:dev]`) y en desarrollo lo muestra
+en la pantalla de pendiente. Necesitas una API key real y un dominio verificado
+en Resend para el envío en producción.
+
+\*\*\* Necesarias solo para el **backup automático de la BD** (ver sección
+[Backup](#-backup-de-base-de-datos)).
 
 ---
 
@@ -140,10 +224,11 @@ src/
 │   ├── inventario/     # Stock y ajustes
 │   ├── comprobantes/   # Documentos SUNAT
 │   ├── reportes/       # Analítica
+│   │   └── api/reportes/ventas/ # Descarga Excel XLSX
 │   ├── configuracion/  # Ajustes y equipo
 │   ├── switch-business/# Cambiar de negocio
 │   └── actions/        # Server Actions (mutaciones)
-├── components/         # Componentes compartidos (AppShell, formularios, ui/)
+├── components/         # AppShell, formularios, selector de clientes y tickets
 ├── lib/                # auth, prisma, constantes, validaciones, format
 └── generated/prisma/   # Tipos de Prisma (generados, no editar)
 prisma/
@@ -187,12 +272,22 @@ Esquema completo: [`prisma/schema.prisma`](prisma/schema.prisma)
 
 ## ✅ Notas técnicas y limitaciones (estado actual)
 
-- **Email**: el registro marca el correo como verificado de inmediato (MVP).
-  El flujo real de verificación por correo está preparado pero sin usar.
+- **Email**: tras registrarse el usuario NO queda verificado automáticamente.
+  Se genera un token JWT firmado (24 h) y se envía un correo de confirmación
+  vía **Resend** (`src/lib/mailer.ts` + `src/lib/verification.ts`). Sin
+  `RESEND_API_KEY` el enlace se registra en consola/log y se muestra en la
+  pantalla de pendiente en desarrollo. La cuenta se activa al confirmar
+  (`src/app/verify-email`).
 - **SUNAT**: la emisión/envío a SUNAT está en **beta**. Series hardcodeadas
-  (B001 / F001) y entorno `beta`.
-- **Chequea Perú**: el token de prueba responde "DNI/RUC no disponible en
-  este despliegue"; para datos reales se necesita un token de pago/producción.
+  (B001 / F001 / P001 / NP001) y entorno `beta`. El envío real, firma XML y
+  CDR todavía no están activos.
+- **API Perú**: las consultas de DNI/RUC usan `POST /dni` y `POST /ruc` en
+  `https://api.apiperu.pe`, sin enviar comprobantes a SUNAT.
+- **Impresión**: boletas y facturas se imprimen como ticket de 80 mm; las notas
+  de pedido usan una plantilla amplia. Los comprobantes quedan disponibles en
+  `/comprobantes` para reimpresión.
+- **QR**: el QR contiene la representación del comprobante, pero no confirma
+  aceptación ante SUNAT mientras el CPE no haya sido firmado y enviado.
 - **Aislamiento multi-tenant**: toda consulta debe filtrar por `businessId`
   para no filtrar datos entre empresas.
 

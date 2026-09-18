@@ -1,21 +1,28 @@
 import { notFound } from "next/navigation";
+import Image from "next/image";
 import { requireBusiness } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { formatSoles, formatDateTime } from "@/lib/format";
 import { DOCUMENT_STATUS } from "@/lib/constants";
 import { documentNumber } from "@/lib/sunat";
+import { createSunatQr } from "@/lib/sunatQr";
 import AppShell from "@/components/AppShell";
+import PrintButton from "@/components/PrintButton";
+import NotaPedidoPrint from "@/components/NotaPedidoPrint";
 import { Badge } from "@/components/ui/Card";
 
 export const metadata = { title: "Comprobante" };
 
 export default async function DocumentDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ print?: string }>;
 }) {
   const { business } = await requireBusiness();
   const { id } = await params;
+  const { print } = await searchParams;
 
   const doc = await prisma.document.findFirst({
     where: { id, businessId: business.id },
@@ -25,6 +32,17 @@ export default async function DocumentDetailPage({
 
   const st = DOCUMENT_STATUS[doc.status] ?? DOCUMENT_STATUS.pendiente;
   const isInternal = doc.docType === "proforma" || doc.docType === "nota_pedido";
+  const qrDataUrl = isInternal ? null : await createSunatQr({
+    issuerRuc: business.ruc,
+    docType: doc.docType,
+    series: doc.series,
+    number: doc.number,
+    tax: doc.tax,
+    total: doc.total,
+    issueDate: doc.issueDate,
+    customerDocType: doc.customerDocType,
+    customerDocNumber: doc.customerDocNumber,
+  });
 
   const docTypeLabel = {
     boleta: "Boleta electrónica",
@@ -37,23 +55,20 @@ export default async function DocumentDetailPage({
 
   return (
     <AppShell>
-      <div className="mb-4 flex items-center justify-between">
+      <div className="print-page-heading mb-4 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-neutral-900">Comprobante</h1>
           <p className="text-neutral-500">
             {isInternal ? "Documento interno (no se envía a SUNAT)" : "Boleta / Factura electrónica"}
           </p>
         </div>
-        <button
-          onClick={() => window.print()}
-          className="rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-brand-700 print:hidden"
-        >
-          🖨️ Imprimir / Guardar PDF
-        </button>
+        <PrintButton autoPrint={print === "1"} />
       </div>
 
-      {/* Boleta imprimible */}
-      <div className="mx-auto max-w-sm rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm print:max-w-none print:border-0 print:shadow-none">
+      {doc.docType === "nota_pedido" ? (
+        <NotaPedidoPrint business={business} document={doc} />
+      ) : (
+      <div className="print-document print-ticket mx-auto max-w-sm rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm print:max-w-none print:border-0 print:shadow-none">
         {/* Encabezado */}
         <div className="border-b-2 border-dashed border-neutral-300 pb-4 text-center">
           <p className="text-xl font-extrabold text-neutral-900">{business.name}</p>
@@ -93,6 +108,20 @@ export default async function DocumentDetailPage({
             <span className="text-right font-medium text-neutral-800">{doc.customerName}</span>
           </div>
         </div>
+
+        {qrDataUrl && (
+          <div className="mt-4 border-b-2 border-dashed border-neutral-300 pb-3 text-center">
+            <Image
+              src={qrDataUrl}
+              alt="Código QR del comprobante"
+              width={144}
+              height={144}
+              unoptimized
+              className="mx-auto size-36"
+            />
+            <p className="mt-1 text-[10px] text-neutral-400">Consulta del comprobante</p>
+          </div>
+        )}
 
         {/* Detalle */}
         <div className="mt-3 border-b-2 border-dashed border-neutral-300 pb-3">
@@ -147,6 +176,7 @@ export default async function DocumentDetailPage({
           <p className="mt-2">Gracias por su compra 🇵🇪</p>
         </div>
       </div>
+      )}
     </AppShell>
   );
 }
