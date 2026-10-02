@@ -436,6 +436,8 @@ model Plan {
   id        String   @id @default(cuid())
   name      String
   code      String   @unique
+  audience  String?
+  summary   String?
   price     Decimal  @default(0) @db.Decimal(10, 2)
   limits    Json?
   features  Json?
