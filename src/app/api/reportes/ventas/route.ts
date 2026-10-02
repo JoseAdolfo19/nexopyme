@@ -1,14 +1,15 @@
 import { NextResponse } from "next/server";
 import * as XLSX from "xlsx";
 import { requireBusiness } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { scope } from "@/lib/prisma";
 
 export async function GET() {
   const { business } = await requireBusiness();
+  const db = scope(business.id);
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const sales = await prisma.sale.findMany({
+  const sales = await db.sale.findMany({
     where: { businessId: business.id, status: "completada", createdAt: { gte: monthStart } },
     select: {
       saleNumber: true,

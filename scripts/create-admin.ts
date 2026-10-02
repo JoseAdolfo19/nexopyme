@@ -21,8 +21,8 @@ async function createAdmin() {
 
     const user = await prisma.user.create({
       data: {
-        name: "Administrador NexoPyme",
-        email: "admin@nexopyme.com",
+        name: "Administrador Tienda Plus",
+        email: "admin@tiendaplus.test",
         passwordHash: passwordHash,
         emailVerified: new Date(), // Marcamos como verificado para saltar la pantalla de verificación
         isActive: true,
@@ -53,7 +53,7 @@ async function createAdmin() {
 
     console.log("\n🎉 ADMIN ACCOUNT READY!");
     console.log("----------------------------------");
-    console.log("Email: admin@nexopyme.com");
+    console.log("Email: admin@tiendaplus.test");
     console.log("Password: Admin123456");
     console.log("----------------------------------");
 

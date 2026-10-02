@@ -14,8 +14,13 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "NexoPyme — Tu negocio, tu sistema",
-    template: "%s | NexoPyme",
+    default: "Tienda Plus — Tu negocio, tu sistema",
+    template: "%s | Tienda Plus",
+  },
+  icons: {
+    icon: "/logo_icono.png",
+    shortcut: "/logo_icono.png",
+    apple: "/logo_icono.png",
   },
   description:
     "Sistema de gestión, ventas y facturación electrónica para pequeños negocios del Perú. Regístrate, configura tu negocio y empieza a vender.",

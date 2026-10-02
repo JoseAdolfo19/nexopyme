@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireBusiness } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { scope } from "@/lib/prisma";
 import { formatSoles, formatDate } from "@/lib/format";
 import { Card, EmptyState } from "@/components/ui/Card";
 import AppShell from "@/components/AppShell";
@@ -10,8 +10,9 @@ export const metadata = { title: "Clientes" };
 
 export default async function CustomersPage() {
   const { business } = await requireBusiness();
+  const db = scope(business.id);
 
-  const customers = await prisma.customer.findMany({
+  const customers = await db.customer.findMany({
     where: { businessId: business.id, isActive: true },
     include: {
       _count: { select: { sales: true } },

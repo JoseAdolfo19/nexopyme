@@ -53,14 +53,14 @@ export function verificationEmailHtml(url: string): string {
           <table role="presentation" width="100%" maxwidth="480" cellpadding="0" cellspacing="0" style="max-width:480px;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e7e5e4;">
             <tr>
               <td style="background:#0f766e;padding:28px 32px;text-align:center;">
-                <span style="color:#ffffff;font-size:22px;font-weight:bold;">BizCaja</span>
+                <span style="color:#ffffff;font-size:22px;font-weight:bold;">Tienda Plus</span>
               </td>
             </tr>
             <tr>
               <td style="padding:32px;">
                 <h1 style="margin:0 0 12px;color:#171717;font-size:20px;">Confirma tu correo</h1>
                 <p style="margin:0 0 20px;color:#525252;font-size:15px;line-height:1.6;">
-                  Hola, gracias por registrarte en BizCaja. Para activar tu cuenta y empezar a
+                  Hola, gracias por registrarte en Tienda Plus. Para activar tu cuenta y empezar a
                   gestionar tu negocio, confirma tu dirección de correo con el siguiente botón:
                 </p>
                 <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto 24px;">
@@ -92,8 +92,8 @@ export function verificationEmailHtml(url: string): string {
 export async function sendVerificationEmail(email: string, url: string): Promise<void> {
   await sendEmail({
     to: email,
-    subject: "Confirma tu correo — BizCaja",
+    subject: "Confirma tu correo — Tienda Plus",
     html: verificationEmailHtml(url),
-    text: `Confirma tu correo de BizCaja abriendo este enlace: ${url}\n\nSi no creaste esta cuenta, ignora este correo.`,
+    text: `Confirma tu correo de Tienda Plus abriendo este enlace: ${url}\n\nSi no creaste esta cuenta, ignora este correo.`,
   });
 }

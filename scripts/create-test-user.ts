@@ -5,7 +5,7 @@ import { PrismaClient } from "../src/generated/prisma/client";
 import { modulesForType } from "../src/lib/constants";
 import bcrypt from "bcryptjs";
 
-const TEST_EMAIL = process.env.TEST_USER_EMAIL ?? "pruebas@nexopyme.test";
+const TEST_EMAIL = process.env.TEST_USER_EMAIL ?? "pruebas@tiendaplus.test";
 const TEST_PASSWORD = process.env.TEST_USER_PASSWORD ?? randomBytes(12).toString("base64url");
 const TEST_BUSINESS_SLUG = "negocio-pruebas";
 

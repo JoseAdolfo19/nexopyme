@@ -41,9 +41,9 @@ describe("token de verificación de correo", () => {
   });
 
   it("construye la URL pública de verificación con el token", () => {
-    vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://nexopyme.app");
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://tiendaplus.test");
     const url = emailVerificationUrl("abc%def");
-    expect(url).toContain("https://nexopyme.app/verify-email");
+    expect(url).toContain("https://tiendaplus.test/verify-email");
     expect(url).toContain(encodeURIComponent("abc%def"));
   });
 });

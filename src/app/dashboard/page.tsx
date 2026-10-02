@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireBusiness } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { scope } from "@/lib/prisma";
 import { formatSoles, formatNumber, formatDateTime } from "@/lib/format";
 import { DOCUMENT_STATUS, MODULE_MENU } from "@/lib/constants";
 import { Card, CardHeader, Badge } from "@/components/ui/Card";
@@ -10,12 +10,14 @@ export const metadata = { title: "Inicio" };
 
 export default async function DashboardPage() {
   const { business, user } = await requireBusiness();
+  const db = scope(business.id);
   const modules = (business.modules as string[]) ?? [];
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
 
+  // Aislamiento multi-tenant: TODAS las métricas se limitan al negocio activo.
   const [
     salesToday,
     salesMonth,
@@ -26,36 +28,38 @@ export default async function DashboardPage() {
     recentDocs,
     recentSales,
   ] = await Promise.all([
-    prisma.sale.aggregate({
-      where: { status: "completada", createdAt: { gte: today } },
+    db.sale.aggregate({
+      where: { businessId: business.id, status: "completada", createdAt: { gte: today } },
       _sum: { total: true },
       _count: true,
     }),
-    prisma.sale.aggregate({
-      where: { status: "completada", createdAt: { gte: monthStart } },
+    db.sale.aggregate({
+      where: { businessId: business.id, status: "completada", createdAt: { gte: monthStart } },
       _sum: { total: true },
       _count: true,
     }),
-    prisma.saleItem.aggregate({
-      where: { sale: { status: "completada", createdAt: { gte: monthStart } } },
+    db.saleItem.aggregate({
+      where: { sale: { businessId: business.id, status: "completada", createdAt: { gte: monthStart } } },
       _sum: { subtotal: true, cost: true },
     }),
-    prisma.saleItem.aggregate({
-      where: { sale: { status: "completada", createdAt: { gte: monthStart } } },
+    db.saleItem.aggregate({
+      where: { sale: { businessId: business.id, status: "completada", createdAt: { gte: monthStart } } },
       _sum: { quantity: true },
     }),
-    prisma.customer.count({ where: { createdAt: { gte: today } } }),
-    prisma.product.findMany({
-      where: { trackStock: true, isActive: true },
+    db.customer.count({ where: { businessId: business.id, createdAt: { gte: today } } }),
+    db.product.findMany({
+      where: { businessId: business.id, trackStock: true, isActive: true },
       orderBy: { stock: "asc" },
       take: 5,
     }),
-    prisma.document.findMany({
+    db.document.findMany({
+      where: { businessId: business.id },
       orderBy: { createdAt: "desc" },
       take: 5,
       include: { customer: true },
     }),
-    prisma.sale.findMany({
+    db.sale.findMany({
+      where: { businessId: business.id },
       orderBy: { createdAt: "desc" },
       take: 5,
       include: { customer: true, items: true },

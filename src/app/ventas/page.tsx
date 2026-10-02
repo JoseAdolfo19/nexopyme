@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireBusiness } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { scope } from "@/lib/prisma";
 import SaleForm from "@/components/SaleForm";
 import AppShell from "@/components/AppShell";
 
@@ -8,9 +8,10 @@ export const metadata = { title: "Nueva venta" };
 
 export default async function NewSalePage() {
   const { business } = await requireBusiness();
+  const db = scope(business.id);
 
-  const [products, customers] = await Promise.all([
-    prisma.product.findMany({
+  const [products, customers, branches] = await Promise.all([
+    db.product.findMany({
       where: { businessId: business.id, isActive: true },
       select: {
         id: true,
@@ -22,10 +23,15 @@ export default async function NewSalePage() {
       },
       orderBy: { name: "asc" },
     }),
-    prisma.customer.findMany({
+    db.customer.findMany({
       where: { businessId: business.id, isActive: true },
       select: { id: true, name: true, docNumber: true, docType: true },
       orderBy: { name: "asc" },
+    }),
+    db.branch.findMany({
+      where: { businessId: business.id, status: "activo" },
+      select: { id: true, name: true, isMain: true },
+      orderBy: [{ isMain: "desc" }, { createdAt: "asc" }],
     }),
   ]);
 
@@ -46,6 +52,7 @@ export default async function NewSalePage() {
           stock: Number(p.stock),
         }))}
         customers={customers}
+        branches={branches}
       />
     </AppShell>
   );

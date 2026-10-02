@@ -63,9 +63,31 @@ describe("mailer — modo producción (con RESEND_API_KEY)", () => {
     expect(init.method).toBe("POST");
     expect(init.headers.Authorization).toBe("Bearer re_test_key_123");
     const body = JSON.parse(init.body);
-    expect(body.from).toBe("BizCaja <no-reply@resend.dev>");
+    expect(body.from).toBe("Tienda Plus <no-reply@resend.dev>");
     expect(body.to).toEqual(["a@b.com"]);
     expect(body.subject).toBe("Asunto");
+  });
+
+  it("incluye adjuntos PDF en la solicitud a Resend", async () => {
+    const { sendEmail } = await loadMailer();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => ({ id: "evt_pdf" }) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await sendEmail({
+      to: "cliente@ejemplo.com",
+      subject: "Comprobante",
+      html: "<p>Adjunto</p>",
+      text: "Adjunto",
+      attachments: [{ filename: "B001-000001.pdf", content: "JVBERi0=", contentType: "application/pdf" }],
+    });
+
+    const [, init] = fetchMock.mock.calls[0];
+    const body = JSON.parse(init.body);
+    expect(body.attachments).toEqual([
+      { filename: "B001-000001.pdf", content: "JVBERi0=", contentType: "application/pdf" },
+    ]);
   });
 
   it("lanza un error si Resend responde con error", async () => {

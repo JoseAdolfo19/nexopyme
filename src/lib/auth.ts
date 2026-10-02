@@ -7,7 +7,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { appSecretKey } from "@/lib/secrets";
 
-export const SESSION_COOKIE = "bizcaja_session";
+export const SESSION_COOKIE = "tiendaplus_session";
 const SESSION_DURATION = 60 * 60 * 24 * 7; // 7 días
 
 const secret = () => new TextEncoder().encode(appSecretKey());
@@ -100,6 +100,13 @@ export async function requireBusiness() {
     console.error("[auth] No se pudo cargar el negocio activo:", error);
     redirect("/login");
   }
+}
+
+/** Requiere una cuenta global de soporte, independiente del negocio activo. */
+export async function requireSuperAdmin() {
+  const user = await requireUser();
+  if (!user.isSuperAdmin) redirect("/dashboard");
+  return user;
 }
 
 export async function setSession(payload: SessionPayload) {

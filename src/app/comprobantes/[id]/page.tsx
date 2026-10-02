@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Image from "next/image";
 import { requireBusiness } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { scope } from "@/lib/prisma";
 import { formatSoles, formatDateTime } from "@/lib/format";
 import { DOCUMENT_STATUS } from "@/lib/constants";
 import { documentNumber } from "@/lib/sunat";
@@ -10,6 +10,7 @@ import AppShell from "@/components/AppShell";
 import PrintButton from "@/components/PrintButton";
 import NotaPedidoPrint from "@/components/NotaPedidoPrint";
 import { Badge } from "@/components/ui/Card";
+import DocumentDelivery from "@/components/DocumentDelivery";
 
 export const metadata = { title: "Comprobante" };
 
@@ -21,12 +22,13 @@ export default async function DocumentDetailPage({
   searchParams: Promise<{ print?: string }>;
 }) {
   const { business } = await requireBusiness();
+  const db = scope(business.id);
   const { id } = await params;
   const { print } = await searchParams;
 
-  const doc = await prisma.document.findFirst({
+  const doc = await db.document.findFirst({
     where: { id, businessId: business.id },
-    include: { sale: { include: { items: true } } },
+    include: { customer: { select: { email: true, phone: true } }, sale: { include: { items: true } } },
   });
   if (!doc) notFound();
 
@@ -62,7 +64,17 @@ export default async function DocumentDetailPage({
             {isInternal ? "Documento interno (no se envía a SUNAT)" : "Boleta / Factura electrónica"}
           </p>
         </div>
-        <PrintButton autoPrint={print === "1"} />
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <DocumentDelivery
+            documentId={doc.id}
+            documentNumber={documentNumber(doc.series, doc.number)}
+            customerName={doc.customerName ?? "cliente"}
+            customerEmail={doc.customer?.email ?? null}
+            customerPhone={doc.customer?.phone ?? null}
+            total={formatSoles(doc.total)}
+          />
+          <PrintButton autoPrint={print === "1"} />
+        </div>
       </div>
 
       {doc.docType === "nota_pedido" ? (
@@ -165,7 +177,7 @@ export default async function DocumentDetailPage({
 
         {/* Pie */}
         <div className="mt-4 border-t border-dashed border-neutral-300 pt-3 text-center text-[11px] text-neutral-400">
-          <p>BizCaja — Tu negocio, tu sistema</p>
+          <p>Tienda Plus — Tu negocio, tu sistema</p>
           {isInternal && (
             <p className="mt-1 font-semibold text-amber-600">
               Documento interno — no tiene valor tributario

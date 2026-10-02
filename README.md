@@ -1,6 +1,6 @@
-# NexoPyme — Sistema de gestión para pequeñas y medianas empresas
+# Tienda Plus — Sistema de gestión para pequeñas y medianas empresas
 
-> **Nombre interno (código):** BizCaja · **Marca de cara al usuario:** NexoPyme
+> Tienda Plus es un sistema de gestión para pequeños negocios del Perú.
 
 Sistema SaaS multi-tenant hecho para pequeños negocios del Perú. Registra
 ventas, controla inventario, gestiona clientes y proveedores, emite
@@ -65,12 +65,30 @@ npm run backup:db -- --keep-local  # además deja una copia en ./backups
 
 ---
 
-## ¿Qué hace NexoPyme?
+## ¿Qué hace Tienda Plus?
 
 ### 🔐 Usuarios y cuentas
 - Registro e inicio de sesión con correo y contraseña (JWT en cookies).
 - Roles por negocio: **Administrador, Vendedor, Contador, Almacén**.
 - Cada usuario puede pertenecer a varios negocios (multiempresa).
+- Perfil de usuario con actualización de nombre y contraseña.
+- Los administradores del negocio pueden agregar usuarios existentes y cambiar sus roles desde Configuración.
+- Existe un rol global de **Superadministrador** para soporte, con un panel separado de métricas y empresas.
+
+### 🛡️ Superadministrador
+
+El superadministrador no se activa desde la interfaz. Créalo o actualízalo desde
+la terminal con credenciales definidas temporalmente en el entorno:
+
+```bash
+$env:SUPERADMIN_EMAIL="soporte@tudominio.com"
+$env:SUPERADMIN_PASSWORD="una-clave-larga-y-segura"
+$env:SUPERADMIN_NAME="Soporte Tienda Plus"
+npm run create:superadmin
+```
+
+El panel está disponible en `/superadmin` y solo muestra datos agregados y
+operativos; no debe mostrar credenciales ni secretos de SUNAT.
 
 ### 🏪 Multi-negocio (SaaS multi-tenant)
 - Base de datos compartida con aislamiento por `businessId`.
@@ -108,7 +126,9 @@ proveedores), ropa (tallas, colores, variantes), etc.
 - El tipo elegido en la venta se conserva en el documento y en el historial.
 - Boletas y facturas usan un ticket común de 80 mm; las notas de pedido usan una plantilla amplia con tabla y firmas.
 - Cada boleta y factura incluye un QR generado en servidor con los datos del comprobante.
-- La impresión oculta la interfaz de BizCaja y permite imprimir o guardar como PDF.
+- Descarga del comprobante en PDF; el PDF puede enviarse como adjunto por email o compartirse con WhatsApp.
+- WhatsApp usa el menú de compartir del dispositivo cuando admite archivos; en otros navegadores descarga el PDF y abre el chat con el mensaje preparado para adjuntarlo.
+- La impresión oculta la interfaz de Tienda Plus y permite imprimir o guardar como PDF.
 - La comunicación con SUNAT continúa simulada; el QR no es verificable oficialmente hasta firmar, enviar y aceptar el CPE.
 
 ### 👤 Clientes en el momento de vender
@@ -130,6 +150,15 @@ proveedores), ropa (tallas, colores, variantes), etc.
 
 ### 💳 Métodos de pago
 Efectivo, **Yape**, **Plin**, tarjeta, transferencia, crédito y otro.
+
+### 💼 Planes y límites
+- Free: 50 comprobantes fiscales al mes y 1 sucursal.
+- Emprendedor: 500 comprobantes fiscales al mes y 1 sucursal.
+- Negocio: 5,000 comprobantes fiscales al mes y hasta 3 sucursales.
+- Multi-Sucursal: S/ 59.90 al mes, 5,000 comprobantes fiscales compartidos y hasta 5 sucursales.
+- Pro: 50,000 comprobantes fiscales al mes y hasta 20 sucursales.
+- Los cupos de boletas y facturas se comparten entre las sucursales; proformas y notas de pedido no consumen el cupo fiscal.
+- El catálogo y los límites quedan activos; la asignación de planes pagados se realiza mediante la suscripción registrada, no hay una pasarela de cobro conectada.
 
 ### 📊 Inventario
 - Control de stock por producto con unidades decimales (ej. 0.5 kg).
@@ -183,12 +212,12 @@ npm run lint       # Validación ESLint
 |----------|:-----------:|-------------|
 | `DATABASE_URL` | ✅ | Cadena de conexión PostgreSQL usada por Prisma y el adaptador `pg` |
 | `AUTH_SECRET` | ✅ | Clave secreta para firmar sesiones JWT. Generar con `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
-| `NEXT_PUBLIC_APP_NAME` | ❌ | Nombre de la marca mostrado al usuario (por defecto `NexoPyme`) |
+| `NEXT_PUBLIC_APP_NAME` | ❌ | Nombre de la marca mostrado al usuario (por defecto `Tienda Plus`) |
 | `NEXT_PUBLIC_APP_URL` | ❌ | URL pública de la app (por defecto `http://localhost:3000`) |
 | `APIPERU_TOKEN` | ❌* | Token privado de API Perú para consultar DNI/RUC |
 | `APIPERU_BASE_URL` | ❌ | URL base de API Perú (por defecto `https://api.apiperu.pe`) |
-| `RESEND_API_KEY` | ❌** | API key de **Resend** para enviar correos transaccionales (verificación de email) |
-| `EMAIL_FROM` | ❌ | Remitente verificado en Resend, p. ej. `BizCaja <no-reply@tudominio.com>`. Por defecto `no-reply@resend.dev` |
+| `RESEND_API_KEY` | ❌** | API key de **Resend** para enviar verificación de email y comprobantes PDF |
+| `EMAIL_FROM` | ❌ | Remitente verificado en Resend, p. ej. `Tienda Plus <no-reply@tudominio.com>`. Por defecto `no-reply@resend.dev` |
 | `AIVEN_S3_ENDPOINT` | ❌*** | Endpoint de **Aiven Object Storage** (S3-compatible) para subir backups |
 | `AIVEN_S3_ACCESS_KEY` | ❌*** | Access key de Aiven Object Storage |
 | `AIVEN_S3_SECRET_KEY` | ❌*** | Secret key de Aiven Object Storage |
@@ -199,7 +228,7 @@ npm run lint       # Validación ESLint
 \* Sin `APIPERU_TOKEN`, la consulta automática de DNI/RUC devuelve error;
 el resto del sistema funciona normalmente.
 
-\*\* Sin `RESEND_API_KEY`, el correo de verificación NO se envía: el sistema
+\*\* Sin `RESEND_API_KEY`, no se envían correos de verificación ni comprobantes: el sistema
 registra el enlace en consola/log (`[mailer:dev]`) y en desarrollo lo muestra
 en la pantalla de pendiente. Necesitas una API key real y un dominio verificado
 en Resend para el envío en producción.

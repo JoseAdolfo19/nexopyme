@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireBusiness } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { scope } from "@/lib/prisma";
 import ProductForm from "@/components/ProductForm";
 import AppShell from "@/components/AppShell";
 
@@ -8,7 +8,8 @@ export const metadata = { title: "Nuevo producto" };
 
 export default async function NewProductPage() {
   const { business } = await requireBusiness();
-  const categories = await prisma.category.findMany({
+  const db = scope(business.id);
+  const categories = await db.category.findMany({
     where: { businessId: business.id, isActive: true },
     select: { id: true, name: true },
     orderBy: { name: "asc" },

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireBusiness } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { scope } from "@/lib/prisma";
 import { formatNumber, formatDateTime, formatSoles } from "@/lib/format";
 import { Card, CardHeader, Badge, EmptyState } from "@/components/ui/Card";
 import AppShell from "@/components/AppShell";
@@ -16,14 +16,15 @@ const TYPE_LABEL: Record<string, string> = {
 
 export default async function InventoryPage() {
   const { business } = await requireBusiness();
+  const db = scope(business.id);
 
   const [products, movements] = await Promise.all([
-    prisma.product.findMany({
+    db.product.findMany({
       where: { businessId: business.id, isActive: true, trackStock: true },
       include: { category: true },
       orderBy: [{ stock: "asc" }, { name: "asc" }],
     }),
-    prisma.inventoryMovement.findMany({
+    db.inventoryMovement.findMany({
       where: { businessId: business.id },
       include: { product: { select: { name: true } }, user: { select: { name: true } } },
       orderBy: { createdAt: "desc" },

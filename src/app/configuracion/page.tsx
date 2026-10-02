@@ -1,13 +1,35 @@
 import { requireBusiness } from "@/lib/auth";
-import { modulesForType, businessTypeLabel, PAYMENT_METHODS } from "@/lib/constants";
+import { modulesForType, businessTypeLabel, PAYMENT_METHODS, PLAN_CATALOG } from "@/lib/constants";
 import { Card, CardHeader, Badge } from "@/components/ui/Card";
 import AppShell from "@/components/AppShell";
 import { BusinessProfileForm, SunatConfigForm } from "@/components/SettingsForms";
+import TeamForm from "@/components/TeamForm";
+import { prisma } from "@/lib/prisma";
+import { countMonthlyFiscalDocuments, getBusinessPlan } from "@/lib/plans";
+import BranchManagementForm from "@/components/BranchManagementForm";
+import { formatSoles } from "@/lib/format";
 
 export const metadata = { title: "Configuración" };
 
 export default async function SettingsPage() {
-  const { business } = await requireBusiness();
+  const { business, user } = await requireBusiness();
+
+  const members = await prisma.businessUser.findMany({
+    where: { businessId: business.id, isActive: true },
+    include: { user: { select: { id: true, name: true, email: true } } },
+    orderBy: { createdAt: "asc" },
+  });
+  const currentMember = members.find((member) => member.user.id === user.id);
+
+  const [branches, plan, documentsUsed] = await Promise.all([
+    prisma.branch.findMany({
+      where: { businessId: business.id, status: "activo" },
+      select: { id: true, name: true, address: true, isMain: true },
+      orderBy: [{ isMain: "desc" }, { createdAt: "asc" }],
+    }),
+    getBusinessPlan(business.id),
+    countMonthlyFiscalDocuments(prisma, business.id),
+  ]);
 
   const activeModules = (business.modules as string[]) ?? [];
   const allModulesForType = modulesForType(business.businessType);
@@ -20,6 +42,52 @@ export default async function SettingsPage() {
       </div>
 
       <div className="space-y-6">
+        <Card>
+          <CardHeader title="Plan y uso" subtitle="Cupos compartidos entre todas las sucursales" />
+          <div className="p-5">
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div>
+                <p className="text-xs font-semibold uppercase text-neutral-500">Plan activo</p>
+                <p className="mt-1 text-lg font-bold text-neutral-900">{plan.name}</p>
+                <p className="text-sm text-neutral-600">{formatSoles(plan.price)} / mes</p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase text-neutral-500">Comprobantes fiscales este mes</p>
+                <p className="mt-1 text-lg font-bold text-neutral-900">{documentsUsed.toLocaleString("es-PE")} / {plan.limits.documents.toLocaleString("es-PE")}</p>
+                <p className="text-sm text-neutral-600">Boletas y facturas, compartidas por sede</p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase text-neutral-500">Sucursales</p>
+                <p className="mt-1 text-lg font-bold text-neutral-900">{branches.length} / {plan.limits.branches}</p>
+                <p className="text-sm text-neutral-600">Hasta {plan.limits.branches} en este plan</p>
+              </div>
+            </div>
+            <div className="mt-5 divide-y divide-neutral-100 border-t border-neutral-100">
+              {PLAN_CATALOG.map((availablePlan) => (
+                <div key={availablePlan.code} className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm">
+                  <span className={availablePlan.code === plan.code ? "font-bold text-brand-700" : "font-medium text-neutral-800"}>
+                    {availablePlan.name}{availablePlan.code === plan.code ? " · Activo" : ""}
+                  </span>
+                  <span className="text-neutral-600">
+                    {formatSoles(availablePlan.price)}/mes · {availablePlan.limits.branches} sucursal(es) · {availablePlan.limits.documents.toLocaleString("es-PE")} comprobantes
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </Card>
+
+        <Card>
+          <CardHeader title="Sucursales" subtitle="Registra y asigna ventas a cada sede" />
+          <div className="p-5">
+            <BranchManagementForm
+              branches={branches}
+              maxBranches={plan.limits.branches}
+              canManage={currentMember?.role === "administrador"}
+            />
+          </div>
+        </Card>
+
         {/* Datos del negocio */}
         <Card>
           <CardHeader title="Datos del negocio" subtitle="La información que ven tus clientes" />
@@ -82,6 +150,22 @@ export default async function SettingsPage() {
               Los módulos se activaron automáticamente al crear tu negocio. No se muestran
               funciones que tu negocio no necesita.
             </p>
+          </div>
+        </Card>
+
+        <Card>
+          <CardHeader title="Equipo y roles" subtitle="Controla qué puede hacer cada usuario en este negocio" />
+          <div className="p-5">
+            <TeamForm
+              canManage={currentMember?.role === "administrador"}
+              members={members.map((member) => ({
+                userId: member.user.id,
+                name: member.user.name,
+                email: member.user.email,
+                role: member.role,
+                isActive: member.isActive,
+              }))}
+            />
           </div>
         </Card>
 

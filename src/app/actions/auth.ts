@@ -4,9 +4,10 @@ import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { loginSchema, registerSchema } from "@/lib/validations";
-import { clearSession, setSession } from "@/lib/auth";
+import { clearSession, getCurrentUser, setSession } from "@/lib/auth";
 import { AUTH_RATE_LIMITS, assertSameOrigin, getClientIp, rateLimit } from "@/lib/security";
 import { createEmailVerificationToken, emailVerificationUrl, sendVerificationEmail } from "@/lib/verification";
+import { isEmailDeliveryConfigured } from "@/lib/mailer";
 
 type ActionResult = { error?: string; ok?: boolean };
 
@@ -56,11 +57,50 @@ export async function registerAction(
   // Se genera un token firmado y se envía por correo (Resend) o se registra en log.
   const token = await createEmailVerificationToken(user.id);
   const url = emailVerificationUrl(token);
-  await sendVerificationEmail(user.email, url);
+
+  // El fallo del mailer no debe romper el registro: la cuenta ya existe y el
+  // usuario debe llegar a la pantalla de pendiente (en desarrollo el enlace se
+  // muestra allí). De lo contrario, la cuenta quedaría inaccesible: un
+  // reintento respondería "Ya existe una cuenta con este correo".
+  try {
+    await sendVerificationEmail(user.email, url);
+  } catch (error) {
+    console.error("[register] No se pudo enviar el correo de verificación:", error);
+  }
 
   await setSession({ userId: user.id });
   const devUrl = process.env.NODE_ENV !== "production" ? `&devUrl=${encodeURIComponent(url)}` : "";
   redirect(`/verify-email/pending?email=${encodeURIComponent(user.email)}${devUrl}`);
+}
+
+export async function resendVerificationAction(_prev: ActionResult): Promise<ActionResult> {
+  void _prev;
+  const user = await getCurrentUser();
+  if (!user) return { error: "Tu sesión venció. Inicia sesión para reenviar el correo." };
+  if (user.emailVerified) redirect("/dashboard");
+
+  const ip = await getClientIp();
+  const limit = rateLimit(`resend-verification:${user.id}:${ip}`, AUTH_RATE_LIMITS.register);
+  if (!limit.ok) return { error: "Espera un minuto antes de solicitar otro correo." };
+
+  try {
+    await assertSameOrigin();
+  } catch {
+    return { error: "Solicitud no válida." };
+  }
+
+  if (!isEmailDeliveryConfigured()) {
+    return { error: "El envío de correo no está configurado en el servidor." };
+  }
+
+  try {
+    const token = await createEmailVerificationToken(user.id);
+    await sendVerificationEmail(user.email, emailVerificationUrl(token));
+    return { ok: true };
+  } catch (error) {
+    console.error("[verification] No se pudo reenviar el correo:", error);
+    return { error: "No se pudo enviar el correo. Inténtalo nuevamente." };
+  }
 }
 
 export async function loginAction(
@@ -110,17 +150,20 @@ export async function loginAction(
     return { error: "Tu cuenta está desactivada. Contacta con soporte." };
   }
 
-  await setSession({ userId: user.id });
-
-  // Si el usuario ya tiene negocios, entra al más reciente.
+  // Si el usuario ya tiene negocios, entra al más reciente con ese negocio
+  // activo en la sesión (requireBusiness exige businessId en la sesión y
+  // de lo contrario redirigiría al onboarding una y otra vez).
   const membership = await prisma.businessUser.findFirst({
     where: { userId: user.id, isActive: true },
     orderBy: { createdAt: "desc" },
   });
 
   if (membership) {
+    await setSession({ userId: user.id, businessId: membership.businessId });
     redirect("/dashboard");
   }
+
+  await setSession({ userId: user.id });
   redirect("/onboarding");
 }
 

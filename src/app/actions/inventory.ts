@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { prisma } from "@/lib/prisma";
+import { scope } from "@/lib/prisma";
 import { getCurrentUser, getSession } from "@/lib/auth";
 import { round2 } from "@/lib/sunat";
 import { audit } from "@/lib/audit";
@@ -14,6 +14,7 @@ export async function adjustStockAction(_prev: ActionResult, formData: FormData)
   const session = await getSession();
   const businessId = session?.businessId;
   if (!user || !businessId) return { error: "Sesión no válida." };
+  const db = scope(businessId);
 
   const productId = String(formData.get("product_id") ?? "");
   const type = String(formData.get("type") ?? "ajuste");
@@ -23,7 +24,7 @@ export async function adjustStockAction(_prev: ActionResult, formData: FormData)
   if (!productId) return { error: "Producto no válido." };
   if (!Number.isFinite(quantityRaw) || quantityRaw <= 0) return { error: "La cantidad debe ser mayor a 0." };
 
-  const product = await prisma.product.findFirst({
+  const product = await db.product.findFirst({
     where: { id: productId, businessId },
   });
   if (!product) return { error: "Producto no encontrado." };
@@ -40,7 +41,7 @@ export async function adjustStockAction(_prev: ActionResult, formData: FormData)
     after = round2(quantityRaw);
   }
 
-  await prisma.$transaction(async (tx) => {
+  await db.$transaction(async (tx) => {
     await tx.product.update({ where: { id: product.id }, data: { stock: after } });
     await tx.inventoryMovement.create({
       data: {

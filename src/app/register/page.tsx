@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { registerFormAction } from "@/app/actions/auth";
@@ -16,9 +17,7 @@ export default async function RegisterPage() {
     <div className="flex min-h-screen items-center justify-center px-4 py-10">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <span className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-brand-600 text-2xl font-bold text-white">
-            N
-          </span>
+          <Image src="/logo_icono.png" alt="Tienda Plus" width={72} height={72} className="mx-auto size-16 rounded-2xl" />
           <h1 className="mt-4 text-2xl font-bold text-neutral-900">Crea tu cuenta gratis</h1>
           <p className="mt-1 text-neutral-500">Empieza a organizar tu negocio en minutos</p>
         </div>

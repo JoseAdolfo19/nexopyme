@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireBusiness } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { scope } from "@/lib/prisma";
 import AdjustStockForm from "@/components/AdjustStockForm";
 import AppShell from "@/components/AppShell";
 
@@ -13,9 +13,10 @@ export default async function AdjustStockPage({
   params: Promise<{ id: string }>;
 }) {
   const { business } = await requireBusiness();
+  const db = scope(business.id);
   const { id } = await params;
 
-  const product = await prisma.product.findFirst({
+  const product = await db.product.findFirst({
     where: { id, businessId: business.id, trackStock: true },
   });
   if (!product) notFound();

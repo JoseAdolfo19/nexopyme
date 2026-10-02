@@ -35,6 +35,12 @@ export const businessSchema = z.object({
   city: z.string().max(80).optional().or(z.literal("Urubamba")),
 });
 
+export const branchSchema = z.object({
+  name: z.string().trim().min(2, "Ingresa el nombre de la sucursal").max(100),
+  address: z.string().trim().max(200).optional().or(z.literal("")),
+  phone: z.string().trim().max(30).optional().or(z.literal("")),
+});
+
 // ==================== CLIENTES ====================
 
 export const customerSchema = z.object({
@@ -84,6 +90,7 @@ export const categorySchema = z.object({
 
 export const saleSchema = z.object({
   customerId: z.string().optional().or(z.literal("")),
+  branchId: z.string().optional().or(z.literal("")),
   paymentMethod: z.enum(["efectivo", "yape", "plin", "tarjeta", "transferencia", "credito", "otro"]),
   docType: z.enum(["boleta", "factura", "proforma", "nota_pedido"]).default("boleta"),
   notes: z.string().max(500).optional().or(z.literal("")),

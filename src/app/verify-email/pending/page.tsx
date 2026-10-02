@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
+import ResendVerificationForm from "@/components/ResendVerificationForm";
 
 export const metadata: Metadata = { title: "Verifica tu correo" };
 
 type Props = { searchParams: Promise<{ email?: string; devUrl?: string }> };
 
 /**
- * Pantalla de pendiente: se muestra tras registrarse. Como aún no hay
- * proveedor de correo, en desarrollo se muestra el enlace de verificación
- * (mailer log-based). En producción debe venir por email real.
+ * En desarrollo muestra el enlace de verificación si no hay proveedor.
  */
 export default async function PendingPage({ searchParams }: Props) {
   const { email, devUrl } = await searchParams;
@@ -17,9 +17,7 @@ export default async function PendingPage({ searchParams }: Props) {
   return (
     <div className="flex min-h-screen items-center justify-center px-4 py-10">
       <div className="w-full max-w-md rounded-3xl border border-neutral-200 bg-white p-8 text-center shadow-sm">
-        <span className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-brand-600 text-2xl font-bold text-white">
-          ✉
-        </span>
+        <Image src="/logo_icono.png" alt="Tienda Plus" width={72} height={72} className="mx-auto size-16 rounded-2xl" />
         <h1 className="mt-4 text-2xl font-bold text-neutral-900">Verifica tu correo</h1>
         <p className="mt-2 text-neutral-600">
           Te enviamos un enlace de verificación{email ? ` a ${email}` : ""}.
@@ -42,6 +40,8 @@ export default async function PendingPage({ searchParams }: Props) {
             )}
           </div>
         )}
+
+        <ResendVerificationForm />
 
         <Link
           href="/login"

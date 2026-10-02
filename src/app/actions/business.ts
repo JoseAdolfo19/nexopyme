@@ -1,14 +1,16 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { businessSchema } from "@/lib/validations";
-import { modulesForType } from "@/lib/constants";
-import { getCurrentUser, getSession, setSession, switchBusiness } from "@/lib/auth";
+import { branchSchema, businessSchema } from "@/lib/validations";
+import { modulesForType, PLAN_CATALOG } from "@/lib/constants";
+import { getCurrentUser, getSession, requireBusiness, setSession, switchBusiness } from "@/lib/auth";
 import { slugify } from "@/lib/format";
 import { audit } from "@/lib/audit";
+import { getBusinessPlan } from "@/lib/plans";
 
-type ActionResult = { error?: string };
+type ActionResult = { error?: string; ok?: boolean };
 
 export async function createBusinessAction(
   _prev: ActionResult,
@@ -121,6 +123,26 @@ export async function createBusinessAction(
       data: { businessId: biz.id, name: "Principal", address: data.address || null, isMain: true },
     });
 
+    let freePlanId: string | null = null;
+    for (const catalogPlan of PLAN_CATALOG) {
+      const plan = await tx.plan.upsert({
+        where: { code: catalogPlan.code },
+        update: {},
+        create: {
+          code: catalogPlan.code,
+          name: catalogPlan.name,
+          price: catalogPlan.price,
+          limits: { ...catalogPlan.limits },
+          features: [...catalogPlan.features],
+        },
+      });
+      if (catalogPlan.code === "free") freePlanId = plan.id;
+    }
+    if (!freePlanId) throw new Error("No se pudo cargar el plan Free.");
+    await tx.subscription.create({
+      data: { businessId: biz.id, planId: freePlanId, status: "activa", startsAt: new Date() },
+    });
+
     return biz;
   });
 
@@ -138,6 +160,47 @@ export async function createBusinessAction(
   });
 
   redirect("/dashboard");
+}
+
+export async function createBranchAction(
+  _prev: ActionResult,
+  formData: FormData,
+): Promise<ActionResult> {
+  const { user, business } = await requireBusiness();
+  const membership = business.users.find((member) => member.userId === user.id && member.isActive);
+  if (membership?.role !== "administrador") {
+    return { error: "Solo un administrador puede agregar sucursales." };
+  }
+
+  const parsed = branchSchema.safeParse({
+    name: formData.get("name"),
+    address: formData.get("address") ?? "",
+    phone: formData.get("phone") ?? "",
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Revisa los datos." };
+
+  const plan = await getBusinessPlan(business.id);
+  const result = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM businesses WHERE id = ${business.id} FOR UPDATE`;
+    const branchCount = await tx.branch.count({ where: { businessId: business.id, status: "activo" } });
+    if (branchCount >= plan.limits.branches) {
+      return { error: `Tu plan ${plan.name} permite hasta ${plan.limits.branches} sucursal(es).` };
+    }
+
+    await tx.branch.create({
+      data: {
+        businessId: business.id,
+        name: parsed.data.name,
+        address: parsed.data.address || null,
+        phone: parsed.data.phone || null,
+      },
+    });
+    return { ok: true };
+  });
+
+  if (result.error) return result;
+  revalidatePath("/configuracion");
+  return { ok: true };
 }
 
 export async function switchBusinessAction(formData: FormData): Promise<void> {

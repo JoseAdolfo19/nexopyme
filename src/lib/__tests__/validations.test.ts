@@ -4,6 +4,7 @@ import {
   registerSchema,
   loginSchema,
   businessSchema,
+  branchSchema,
   customerSchema,
   productSchema,
   saleSchema,
@@ -71,6 +72,18 @@ describe("businessSchema", () => {
   });
   it("rechaza nombre demasiado corto", () => {
     expect(businessSchema.safeParse({ name: "A", businessType: "t" }).success).toBe(false);
+  });
+});
+
+describe("branchSchema", () => {
+  it("normaliza y acepta datos válidos de sucursal", () => {
+    const result = branchSchema.safeParse({ name: "  Centro  ", address: "", phone: "999 123 456" });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.name).toBe("Centro");
+  });
+
+  it("rechaza un nombre demasiado corto", () => {
+    expect(branchSchema.safeParse({ name: "A" }).success).toBe(false);
   });
 });
 

@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { formatDateTime, formatSoles } from "@/lib/format";
 import { documentNumber } from "@/lib/sunat";
 
@@ -35,8 +36,8 @@ export default function NotaPedidoPrint({ business, document }: { business: Busi
   return (
     <div className="print-document print-note-order mx-auto max-w-3xl rounded-xl border border-neutral-300 bg-white p-8 shadow-sm print:max-w-none print:rounded-none print:border print:p-8 print:shadow-none">
       <div className="flex items-start justify-between gap-8 border-b border-neutral-400 pb-5">
-        <div className="flex h-20 w-48 items-center justify-center border border-neutral-400 text-center text-xs text-neutral-400">
-          LOGO
+        <div className="flex h-20 w-48 items-center justify-center border border-neutral-400">
+          <Image src="/logo_icono.png" alt="Tienda Plus" width={64} height={64} className="size-16 object-contain" />
         </div>
         <div className="text-right text-sm text-neutral-700">
           <p>RUC: {business.ruc ?? "________________"}</p>

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireBusiness } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { scope } from "@/lib/prisma";
 import { formatSoles, formatNumber } from "@/lib/format";
 import { Card, Badge, EmptyState } from "@/components/ui/Card";
 import AppShell from "@/components/AppShell";
@@ -10,14 +10,15 @@ export const metadata = { title: "Mis productos" };
 
 export default async function ProductsPage() {
   const { business } = await requireBusiness();
+  const db = scope(business.id);
 
-  const products = await prisma.product.findMany({
+  const products = await db.product.findMany({
     where: { businessId: business.id, isActive: true },
     include: { category: true },
     orderBy: { createdAt: "desc" },
   });
 
-  const categories = await prisma.category.findMany({
+  const categories = await db.category.findMany({
     where: { businessId: business.id, isActive: true },
   });
 

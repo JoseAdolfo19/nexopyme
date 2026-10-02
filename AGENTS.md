@@ -10,35 +10,9 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 ---
 
-# BizCaja — Multi-Tenant SaaS for SMB Management
+# Tienda Plus
 
-**BizCaja** is a modern SaaS platform designed for small and medium-sized businesses (SMBs) to manage sales, inventory, customers, and compliance. Built with Next.js 16, Prisma 7, and MariaDB.
-
-## Key Characteristics
-
-- **Multi-tenant architecture**: Shared database with `businessId` isolation
-- **Dynamic module system**: Features enable/disable based on business type (restaurant, retail, salon, etc.)
-- **Full Spanish UX**: Localized terminology and workflows
-- **Role-based access**: administrador, vendedor, contador, almacén
-- **SUNAT integration**: Peruvian tax authority document submission (beta)
-- **Responsive design**: Mobile-first with Tailwind + custom UI components
-
----
-
-## Tech Stack & Build
-
-```bash
-npm run dev      # Start Next.js dev server (localhost:3000)
-npm run build    # Build + Prisma generate (required)
-npm start        # Run production build
-npm run lint     # ESLint validation
-```
-
-**Dependencies**:
-# NexoPyme / BizCaja
-
-NexoPyme es un SaaS en español para negocios peruanos. El nombre interno del
-código es BizCaja. Consulta el [README](README.md) para la puesta en marcha,
+Tienda Plus es un SaaS en español para negocios peruanos. Consulta el [README](README.md) para la puesta en marcha,
 variables de entorno y descripción funcional; no dupliques esa documentación
 en este archivo.
 
@@ -53,9 +27,13 @@ npm run test:watch
 ```
 
 Requisitos habituales: Node.js 20+, npm y una base de datos compatible con la
-configuración actual. Antes de asumir el proveedor de base de datos, verifica
-[prisma/schema.prisma](prisma/schema.prisma) y [src/lib/prisma.ts](src/lib/prisma.ts):
-el código actual genera el cliente Prisma y usa `@prisma/adapter-pg`.
+configuración actual. El proveedor real es **PostgreSQL**: el datasource en
+[prisma/schema.prisma](prisma/schema.prisma) es `provider = "postgresql"` y
+[src/lib/prisma.ts](src/lib/prisma.ts) usa `@prisma/adapter-pg`. Las referencias
+a MariaDB/MySQL son restos de un cambio anterior: el comentario de cabecera del
+esquema, `@prisma/adapter-mariadb` en `package.json` y el servicio `mysql:8.4`
+de `.github/workflows/ci.yml` NO reflejan el estado actual; no las uses como
+fuente de verdad.
 
 ## Límites de arquitectura
 

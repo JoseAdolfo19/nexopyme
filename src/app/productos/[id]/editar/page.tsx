@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireBusiness } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { scope } from "@/lib/prisma";
 import ProductForm from "@/components/ProductForm";
 import AppShell from "@/components/AppShell";
 
@@ -13,14 +13,15 @@ export default async function EditProductPage({
   params: Promise<{ id: string }>;
 }) {
   const { business } = await requireBusiness();
+  const db = scope(business.id);
   const { id } = await params;
 
-  const product = await prisma.product.findFirst({
+  const product = await db.product.findFirst({
     where: { id, businessId: business.id },
   });
   if (!product) notFound();
 
-  const categories = await prisma.category.findMany({
+  const categories = await db.category.findMany({
     where: { businessId: business.id, isActive: true },
     select: { id: true, name: true },
     orderBy: { name: "asc" },

@@ -2,11 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { prisma } from "@/lib/prisma";
+import { prisma, scope } from "@/lib/prisma";
 import { saleSchema } from "@/lib/validations";
-import { getCurrentUser, getSession } from "@/lib/auth";
+import { getCurrentUser, getSession, requireBusiness } from "@/lib/auth";
 import { computeTotals, createDocument, round2 } from "@/lib/sunat";
 import { audit } from "@/lib/audit";
+import { countMonthlyFiscalDocuments, getBusinessPlan } from "@/lib/plans";
 
 type ActionResult = { error?: string };
 
@@ -19,10 +20,9 @@ type ActionResult = { error?: string };
  * 5. Genera el comprobante (boleta/factura) e inicia el flujo SUNAT.
  */
 export async function createSaleAction(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
-  const user = await getCurrentUser();
-  const session = await getSession();
-  const businessId = session?.businessId;
-  if (!user || !businessId) return { error: "Sesión no válida." };
+  const { user, business } = await requireBusiness();
+  const businessId = business.id;
+  const db = scope(businessId);
 
   const itemsRaw = [];
   let idx = 0;
@@ -39,6 +39,7 @@ export async function createSaleAction(_prev: ActionResult, formData: FormData):
     customerId: formData.get("customer_id") ?? "",
     paymentMethod: formData.get("payment_method") ?? "efectivo",
     docType: formData.get("doc_type") ?? "boleta",
+    branchId: formData.get("branch_id") ?? "",
     notes: formData.get("notes") ?? "",
     items: itemsRaw,
   });
@@ -48,9 +49,10 @@ export async function createSaleAction(_prev: ActionResult, formData: FormData):
   }
 
   const d = parsed.data;
+  const plan = await getBusinessPlan(businessId);
 
   if (d.customerId) {
-    const customer = await prisma.customer.findFirst({
+    const customer = await db.customer.findFirst({
       where: { id: d.customerId, businessId, isActive: true },
       select: { id: true },
     });
@@ -58,7 +60,7 @@ export async function createSaleAction(_prev: ActionResult, formData: FormData):
   }
 
   const productIds = d.items.map((i) => i.productId);
-  const products = await prisma.product.findMany({
+  const products = await db.product.findMany({
     where: { id: { in: productIds }, businessId, isActive: true },
   });
   const productMap = new Map(products.map((p) => [p.id, p]));
@@ -81,10 +83,25 @@ export async function createSaleAction(_prev: ActionResult, formData: FormData):
   // se genera boleta/factura. La boleta incluye IGV en el precio.
   const totals = computeTotals(subtotalNet, d.docType);
 
-  const sale = await prisma.$transaction(async (tx) => {
+  const saleResult = await prisma.$transaction(async (tx) => {
     // Serializa las ventas del mismo negocio: `FOR UPDATE` sobre la fila del
     // negocio impide que dos ventas concurrentes calculen el mismo número.
     await tx.$queryRaw`SELECT id FROM businesses WHERE id = ${businessId} FOR UPDATE`;
+
+    if (d.docType === "boleta" || d.docType === "factura") {
+      const used = await countMonthlyFiscalDocuments(tx, businessId);
+      if (used >= plan.limits.documents) {
+        return { error: `Alcanzaste el límite mensual de ${plan.limits.documents} comprobantes de tu plan ${plan.name}.` };
+      }
+    }
+
+    const branch = d.branchId
+      ? await tx.branch.findFirst({
+          where: { id: d.branchId, businessId, status: "activo" },
+          select: { id: true },
+        })
+      : await tx.branch.findFirst({ where: { businessId, isMain: true, status: "activo" }, select: { id: true } });
+    if (d.branchId && !branch) return { error: "La sucursal seleccionada no pertenece a este negocio." };
 
     const count = await tx.sale.count({ where: { businessId } });
     // `saleNumber` es `@unique` GLOBAL en el esquema, así que se antepone un
@@ -95,6 +112,7 @@ export async function createSaleAction(_prev: ActionResult, formData: FormData):
     const sale = await tx.sale.create({
       data: {
         businessId,
+        branchId: branch?.id ?? null,
         customerId: d.customerId || null,
         userId: user.id,
         saleNumber,
@@ -103,6 +121,7 @@ export async function createSaleAction(_prev: ActionResult, formData: FormData):
         tax: totals.tax,
         total: totals.total,
         paymentMethod: d.paymentMethod,
+        docType: d.docType,
         status: "completada",
         notes: d.notes || null,
       },
@@ -156,8 +175,11 @@ export async function createSaleAction(_prev: ActionResult, formData: FormData):
       },
     });
 
-    return sale;
+    return { sale };
   }, { maxWait: 10_000, timeout: 15_000 });
+
+  if ("error" in saleResult) return { error: saleResult.error };
+  const sale = saleResult.sale;
 
   await audit({
     action: "sale.create",
@@ -173,7 +195,7 @@ export async function createSaleAction(_prev: ActionResult, formData: FormData):
   let documentId: string | null = null;
   try {
     const customer = d.customerId
-      ? await prisma.customer.findFirst({ where: { id: d.customerId, businessId } })
+      ? await db.customer.findFirst({ where: { id: d.customerId, businessId } })
       : null;
 
     const document = await createDocument({
@@ -203,12 +225,13 @@ export async function cancelSaleAction(formData: FormData): Promise<void> {
   const session = await getSession();
   const businessId = session?.businessId;
   if (!user || !businessId) return;
+  const db = scope(businessId);
 
   const id = String(formData.get("id") ?? "");
-  const sale = await prisma.sale.findFirst({ where: { id, businessId } });
+  const sale = await db.sale.findFirst({ where: { id, businessId } });
   if (!sale || sale.status !== "completada") return;
 
-  await prisma.$transaction(async (tx) => {
+  await db.$transaction(async (tx) => {
     await tx.sale.update({ where: { id }, data: { status: "anulada" } });
 
     // Reponer stock

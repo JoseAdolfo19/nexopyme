@@ -28,18 +28,23 @@ type CartLine = {
   type: string;
 };
 
+type BranchOption = { id: string; name: string; isMain: boolean };
+
 export default function SaleForm({
   products,
   customers,
+  branches,
 }: {
   products: ProductItem[];
   customers: SaleCustomer[];
+  branches: BranchOption[];
 }) {
   const [cart, setCart] = useState<CartLine[]>([]);
   const [query, setQuery] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("efectivo");
   const [docType, setDocType] = useState("boleta");
   const [customerId, setCustomerId] = useState("");
+  const [branchId, setBranchId] = useState(branches.find((branch) => branch.isMain)?.id ?? branches[0]?.id ?? "");
   const [formState, formAction] = useActionState(createSaleAction, {});
 
   const filtered = useMemo(() => {
@@ -122,6 +127,21 @@ export default function SaleForm({
       {/* COLUMNA DERECHA: carrito */}
       <div className="space-y-4">
         <form action={formAction} className="rounded-2xl border border-neutral-200 bg-white p-4">
+          {branches.length > 1 && (
+            <div className="mb-3">
+              <label htmlFor="sale-branch" className="mb-1 block text-sm font-semibold text-neutral-700">Sucursal</label>
+              <select
+                id="sale-branch"
+                value={branchId}
+                onChange={(event) => setBranchId(event.target.value)}
+                className="w-full rounded-xl border border-neutral-300 px-3 py-2.5 text-sm"
+              >
+                {branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
+              </select>
+            </div>
+          )}
+          <input type="hidden" name="branch_id" value={branchId} />
+
           {/* Cliente */}
           <div className="mb-3">
             <SaleCustomerPicker customers={customers} value={customerId} onChange={setCustomerId} />

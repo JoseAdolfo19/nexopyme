@@ -69,6 +69,7 @@ export const MODULE_MENU: Record<string, { label: string; href: string; emoji: s
   proveedores: { label: "Proveedores", href: "/proveedores", emoji: "🚚" },
   caja: { label: "Caja", href: "/caja", emoji: "💰" },
   configuracion: { label: "Configuración", href: "/configuracion", emoji: "⚙️" },
+  superadmin: { label: "Panel global", href: "/superadmin", emoji: "🛡️" },
 };
 
 export const PAYMENT_METHODS = [
@@ -84,6 +85,47 @@ export const PAYMENT_METHODS = [
 export function paymentMethodLabel(value: string): string {
   return PAYMENT_METHODS.find((m) => m.value === value)?.label ?? value;
 }
+
+export const PLAN_CATALOG = [
+  {
+    code: "free",
+    name: "Free",
+    price: 0,
+    limits: { users: 1, documents: 50, businesses: 1, branches: 1 },
+    features: ["1 usuario", "Clientes", "Productos", "Ventas", "Funciones básicas"],
+  },
+  {
+    code: "emprendedor",
+    name: "Emprendedor",
+    price: 19.9,
+    limits: { users: 3, documents: 500, businesses: 1, branches: 1 },
+    features: ["3 usuarios", "Inventario", "Reportes", "Catálogo", "500 comprobantes al mes"],
+  },
+  {
+    code: "negocio",
+    name: "Negocio",
+    price: 39.9,
+    limits: { users: 10, documents: 5000, businesses: 1, branches: 3 },
+    features: ["10 usuarios", "Hasta 3 sucursales", "Caja", "Compras", "5,000 comprobantes al mes"],
+  },
+  {
+    code: "multi_sucursal",
+    name: "Multi-Sucursal",
+    price: 59.9,
+    limits: { users: 10, documents: 5000, businesses: 1, branches: 5 },
+    features: ["10 usuarios", "Hasta 5 sucursales", "Caja", "Compras", "5,000 comprobantes al mes compartidos"],
+  },
+  {
+    code: "pro",
+    name: "Pro",
+    price: 69.9,
+    limits: { users: 50, documents: 50000, businesses: 5, branches: 20 },
+    features: ["50 usuarios", "Hasta 20 sucursales", "Multiempresa", "Reportes avanzados", "50,000 comprobantes al mes"],
+  },
+] as const;
+
+export type PlanCode = (typeof PLAN_CATALOG)[number]["code"];
+export type PlanLimits = { users: number; documents: number; businesses: number; branches: number };
 
 export const DOCUMENT_TYPES = [
   { value: "boleta", label: "Boleta" },
@@ -115,3 +157,12 @@ export const ROLES = [
   { value: "contador", label: "Contador" },
   { value: "almacen", label: "Almacén" },
 ] as const;
+
+export type BusinessRole = (typeof ROLES)[number]["value"];
+
+export const ROLE_PERMISSIONS: Record<BusinessRole, string[]> = {
+  administrador: ["Gestionar negocio, equipo y configuración", "Ver y modificar todas las operaciones"],
+  vendedor: ["Registrar ventas", "Consultar productos y clientes"],
+  contador: ["Ver ventas, comprobantes y reportes", "Consultar clientes"],
+  almacen: ["Gestionar productos e inventario", "Consultar ventas"],
+};

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireBusiness } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { scope } from "@/lib/prisma";
 import { formatSoles, formatDateTime } from "@/lib/format";
 import { DOCUMENT_STATUS, documentTypeLabel } from "@/lib/constants";
 import { documentNumber } from "@/lib/sunat";
@@ -11,15 +11,16 @@ export const metadata = { title: "Comprobantes" };
 
 export default async function DocumentsPage() {
   const { business } = await requireBusiness();
+  const db = scope(business.id);
 
   const [documents, counts] = await Promise.all([
-    prisma.document.findMany({
+    db.document.findMany({
       where: { businessId: business.id },
       include: { customer: true, sale: true },
       orderBy: { createdAt: "desc" },
       take: 100,
     }),
-    prisma.document.groupBy({
+    db.document.groupBy({
       by: ["status"],
       where: { businessId: business.id },
       _count: true,

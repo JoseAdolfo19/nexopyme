@@ -15,6 +15,12 @@ export async function saveSunatConfigAction(_prev: ActionResult, formData: FormD
   const businessId = session?.businessId;
   if (!user || !businessId) return { error: "Sesión no válida." };
 
+  const membership = await prisma.businessUser.findFirst({
+    where: { businessId, userId: user.id, isActive: true },
+    select: { role: true },
+  });
+  if (membership?.role !== "administrador") return { error: "Solo un administrador puede cambiar la configuración." };
+
   const parsed = sunatConfigSchema.safeParse({
     ruc: formData.get("ruc") ?? "",
     razonSocial: formData.get("razon_social") ?? "",
@@ -72,6 +78,12 @@ export async function saveBusinessProfileAction(_prev: ActionResult, formData: F
   const session = await getSession();
   const businessId = session?.businessId;
   if (!user || !businessId) return { error: "Sesión no válida." };
+
+  const membership = await prisma.businessUser.findFirst({
+    where: { businessId, userId: user.id, isActive: true },
+    select: { role: true },
+  });
+  if (membership?.role !== "administrador") return { error: "Solo un administrador puede cambiar los datos del negocio." };
 
   const name = String(formData.get("name") ?? "").trim();
   const phone = String(formData.get("phone") ?? "").trim();

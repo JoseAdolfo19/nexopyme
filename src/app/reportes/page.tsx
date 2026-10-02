@@ -1,5 +1,5 @@
 import { requireBusiness } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { scope } from "@/lib/prisma";
 import { formatSoles, formatNumber } from "@/lib/format";
 import { paymentMethodLabel } from "@/lib/constants";
 import { Card, CardHeader } from "@/components/ui/Card";
@@ -9,36 +9,37 @@ export const metadata = { title: "Reportes" };
 
 export default async function ReportsPage() {
   const { business } = await requireBusiness();
+  const db = scope(business.id);
 
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
   const [salesToday, salesMonth, byProduct, byMethod, byDay] = await Promise.all([
-    prisma.sale.aggregate({
+    db.sale.aggregate({
       where: { businessId: business.id, status: "completada", createdAt: { gte: todayStart } },
       _sum: { total: true },
       _count: true,
     }),
-    prisma.sale.aggregate({
+    db.sale.aggregate({
       where: { businessId: business.id, status: "completada", createdAt: { gte: monthStart } },
       _sum: { total: true },
       _count: true,
     }),
-    prisma.saleItem.groupBy({
+    db.saleItem.groupBy({
       by: ["productId", "name"],
       where: { sale: { businessId: business.id, status: "completada", createdAt: { gte: monthStart } } },
       _sum: { quantity: true, subtotal: true },
       orderBy: { _sum: { quantity: "desc" } },
       take: 10,
     }),
-    prisma.sale.groupBy({
+    db.sale.groupBy({
       by: ["paymentMethod"],
       where: { businessId: business.id, status: "completada", createdAt: { gte: todayStart } },
       _sum: { total: true },
       _count: true,
     }),
-    prisma.sale.findMany({
+    db.sale.findMany({
       where: { businessId: business.id, status: "completada", createdAt: { gte: monthStart } },
       select: { createdAt: true, total: true },
     }),

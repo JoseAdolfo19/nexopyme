@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireBusiness } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { scope } from "@/lib/prisma";
 import { formatSoles, formatDateTime } from "@/lib/format";
 import { paymentMethodLabel } from "@/lib/constants";
 import { documentTypeLabel } from "@/lib/constants";
@@ -12,8 +12,9 @@ export const metadata = { title: "Historial de ventas" };
 
 export default async function SalesHistoryPage() {
   const { business } = await requireBusiness();
+  const db = scope(business.id);
 
-  const sales = await prisma.sale.findMany({
+  const sales = await db.sale.findMany({
     where: { businessId: business.id },
     include: {
       customer: true,
