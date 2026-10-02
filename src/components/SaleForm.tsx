@@ -12,6 +12,7 @@ import SaleCustomerPicker, { type SaleCustomer } from "@/components/SaleCustomer
 type ProductItem = {
   id: string;
   name: string;
+  barcode: string | null;
   salePrice: number;
   stock: number;
   type: string;
@@ -34,10 +35,12 @@ export default function SaleForm({
   products,
   customers,
   branches,
+  barcodeEnabled,
 }: {
   products: ProductItem[];
   customers: SaleCustomer[];
   branches: BranchOption[];
+  barcodeEnabled: boolean;
 }) {
   const [cart, setCart] = useState<CartLine[]>([]);
   const [query, setQuery] = useState("");
@@ -51,9 +54,18 @@ export default function SaleForm({
     const q = query.trim().toLowerCase();
     if (!q) return products.slice(0, 20);
     return products
-      .filter((p) => p.name.toLowerCase().includes(q) || (p.id && q.includes(p.id.slice(0, 4))))
+      .filter((p) => p.name.toLowerCase().includes(q) || p.barcode?.toLowerCase().includes(q) || (p.id && q.includes(p.id.slice(0, 4))))
       .slice(0, 20);
   }, [query, products]);
+
+  const addScannedProduct = () => {
+    const scanned = query.trim();
+    if (!barcodeEnabled || !scanned) return;
+    const product = products.find((item) => item.barcode === scanned);
+    if (!product) return;
+    addToCart(product);
+    setQuery("");
+  };
 
   const addToCart = (p: ProductItem) => {
     setCart((prev) => {
@@ -96,7 +108,13 @@ export default function SaleForm({
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="🔍 Buscar producto..."
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && barcodeEnabled) {
+                event.preventDefault();
+                addScannedProduct();
+              }
+            }}
+            placeholder={barcodeEnabled ? "Buscar o escanear código de barras..." : "Buscar producto..."}
             className="w-full rounded-xl border border-neutral-300 px-4 py-3 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
           />
           <div className="mt-3 grid max-h-72 grid-cols-2 gap-2 overflow-y-auto sm:grid-cols-3 lg:max-h-[420px]">

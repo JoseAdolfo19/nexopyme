@@ -14,6 +14,7 @@ type Props = {
     description: string | null;
     categoryId: string | null;
     code: string | null;
+    barcode: string | null;
     brand: string | null;
     type: string;
     unit: string;
@@ -23,9 +24,10 @@ type Props = {
     minStock: string | number;
     trackStock: boolean;
   };
+  barcodeEnabled: boolean;
 };
 
-export default function ProductForm({ categories, product }: Props) {
+export default function ProductForm({ categories, product, barcodeEnabled }: Props) {
   const action = product ? updateProductAction : createProductAction;
   const [formState, formAction] = useActionState(action, {});
   const [trackStock, setTrackStock] = useState(product?.trackStock ?? true);
@@ -54,6 +56,10 @@ export default function ProductForm({ categories, product }: Props) {
           </Select>
         </Field>
       </div>
+
+      {barcodeEnabled && (
+        <Input label="Código de barras" name="barcode" defaultValue={product?.barcode ?? ""} placeholder="Escanea o escribe el código" inputMode="numeric" />
+      )}
 
       <Input label="Nombre *" name="name" defaultValue={product?.name} placeholder="Ej: Chullo artesanal" required />
       <Textarea label="Descripción" name="description" defaultValue={product?.description ?? ""} placeholder="Opcional" />

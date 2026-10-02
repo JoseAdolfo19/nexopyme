@@ -127,7 +127,13 @@ export async function createBusinessAction(
     for (const catalogPlan of PLAN_CATALOG) {
       const plan = await tx.plan.upsert({
         where: { code: catalogPlan.code },
-        update: {},
+        update: {
+          name: catalogPlan.name,
+          price: catalogPlan.price,
+          limits: { ...catalogPlan.limits },
+          features: [...catalogPlan.features],
+          isActive: true,
+        },
         create: {
           code: catalogPlan.code,
           name: catalogPlan.name,
@@ -183,7 +189,7 @@ export async function createBranchAction(
   const result = await prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM businesses WHERE id = ${business.id} FOR UPDATE`;
     const branchCount = await tx.branch.count({ where: { businessId: business.id, status: "activo" } });
-    if (branchCount >= plan.limits.branches) {
+    if (plan.limits.branches !== null && branchCount >= plan.limits.branches) {
       return { error: `Tu plan ${plan.name} permite hasta ${plan.limits.branches} sucursal(es).` };
     }
 

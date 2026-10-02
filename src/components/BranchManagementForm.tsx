@@ -13,11 +13,11 @@ export default function BranchManagementForm({
   canManage,
 }: {
   branches: Branch[];
-  maxBranches: number;
+  maxBranches: number | null;
   canManage: boolean;
 }) {
   const [state, action] = useActionState(createBranchAction, {});
-  const atLimit = branches.length >= maxBranches;
+  const atLimit = maxBranches !== null && branches.length >= maxBranches;
 
   return (
     <div className="space-y-5">
@@ -45,7 +45,7 @@ export default function BranchManagementForm({
           </div>
         ))}
       </div>
-      <p className="text-xs text-neutral-500">{branches.length} de {maxBranches} sucursales usadas</p>
+      <p className="text-xs text-neutral-500">{branches.length} de {maxBranches ?? "Ilimitado"} sucursales usadas</p>
     </div>
   );
 }

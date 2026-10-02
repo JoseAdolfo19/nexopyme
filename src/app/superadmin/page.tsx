@@ -7,6 +7,8 @@ import { logoutAction } from "@/app/actions/auth";
 import { businessTypeLabel } from "@/lib/constants";
 import { formatSoles } from "@/lib/format";
 import { Card, CardHeader } from "@/components/ui/Card";
+import { PLAN_CATALOG } from "@/lib/constants";
+import PlanAssignmentForm from "@/components/PlanAssignmentForm";
 
 export const metadata: Metadata = { title: "Panel global" };
 
@@ -22,6 +24,12 @@ export default async function SuperAdminPage() {
         createdAt: true,
         owner: { select: { name: true, email: true } },
         _count: { select: { users: true, products: true, customers: true, sales: true, documents: true } },
+        subscriptions: {
+          where: { status: "activa" },
+          include: { plan: { select: { code: true, name: true } } },
+          orderBy: { createdAt: "desc" },
+          take: 1,
+        },
       },
       orderBy: { createdAt: "desc" },
     }),
@@ -64,6 +72,21 @@ export default async function SuperAdminPage() {
         </div>
 
         <Card>
+          <CardHeader title="Planes disponibles" subtitle="Los planes de pago se asignan tras confirmar el cobro manual; no hay pasarela integrada." />
+          <div className="divide-y divide-neutral-100 px-5">
+            {PLAN_CATALOG.map((plan) => (
+              <div key={plan.code} className="grid gap-2 py-3 sm:grid-cols-[180px_1fr]">
+                <div>
+                  <p className="font-semibold text-neutral-900">{plan.name} · S/ {plan.price}/mes</p>
+                  <p className="text-xs text-neutral-500">{plan.audience}</p>
+                </div>
+                <p className="text-sm text-neutral-600">{plan.features.join(" · ")}</p>
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        <Card>
           <CardHeader title="Empresas registradas" subtitle="Datos operativos agregados por negocio" />
           <div className="overflow-x-auto">
             <table className="w-full min-w-[760px] text-left text-sm">
@@ -73,6 +96,7 @@ export default async function SuperAdminPage() {
                   <th className="px-5 py-3">Propietario</th>
                   <th className="px-5 py-3">Rubro</th>
                   <th className="px-5 py-3">Estado</th>
+                  <th className="px-5 py-3">Plan / cobro manual</th>
                   <th className="px-5 py-3 text-right">Usuarios</th>
                   <th className="px-5 py-3 text-right">Ventas</th>
                   <th className="px-5 py-3 text-right">Comprobantes</th>
@@ -85,6 +109,12 @@ export default async function SuperAdminPage() {
                     <td className="px-5 py-4"><p className="text-neutral-800">{business.owner.name}</p><p className="text-xs text-neutral-500">{business.owner.email}</p></td>
                     <td className="px-5 py-4 text-neutral-600">{businessTypeLabel(business.businessType)}</td>
                     <td className="px-5 py-4"><span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">{business.status}</span></td>
+                    <td className="px-5 py-4">
+                      <PlanAssignmentForm
+                        businessId={business.id}
+                        currentPlanCode={business.subscriptions[0]?.plan.code ?? "free"}
+                      />
+                    </td>
                     <td className="px-5 py-4 text-right text-neutral-700">{business._count.users}</td>
                     <td className="px-5 py-4 text-right text-neutral-700">{business._count.sales}</td>
                     <td className="px-5 py-4 text-right text-neutral-700">{business._count.documents}</td>

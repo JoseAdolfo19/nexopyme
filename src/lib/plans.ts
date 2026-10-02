@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@/generated/prisma/client";
 
 const FREE_PLAN = PLAN_CATALOG[0];
+const LEGACY_PLAN_FALLBACK: PlanLimits = { ...FREE_PLAN.limits, products: null };
 const FISCAL_DOCUMENT_TYPES = ["boleta", "factura"];
 
 function readLimits(value: unknown, fallback: PlanLimits): PlanLimits {
@@ -12,6 +13,7 @@ function readLimits(value: unknown, fallback: PlanLimits): PlanLimits {
   const limits = value as Record<string, unknown>;
   const read = (key: keyof PlanLimits) => {
     const candidate = limits[key];
+    if (candidate === null) return null;
     return typeof candidate === "number" && Number.isInteger(candidate) && candidate >= 0
       ? candidate
       : fallback[key];
@@ -22,6 +24,7 @@ function readLimits(value: unknown, fallback: PlanLimits): PlanLimits {
     documents: read("documents"),
     businesses: read("businesses"),
     branches: read("branches"),
+    products: read("products"),
   };
 }
 
@@ -40,17 +43,21 @@ export async function getBusinessPlan(businessId: string) {
     orderBy: { createdAt: "desc" },
   });
 
-  const catalogPlan = PLAN_CATALOG.find((plan) => plan.code === subscription?.plan.code) ?? FREE_PLAN;
+  const catalogPlan = PLAN_CATALOG.find((plan) => plan.code === subscription?.plan.code);
   const dbPlan = subscription?.plan;
 
   return {
     code: dbPlan?.code ?? FREE_PLAN.code,
-    name: dbPlan?.name ?? FREE_PLAN.name,
-    price: dbPlan ? Number(dbPlan.price) : FREE_PLAN.price,
-    limits: readLimits(dbPlan?.limits, catalogPlan.limits),
-    features: Array.isArray(dbPlan?.features)
+    name: catalogPlan?.name ?? dbPlan?.name ?? FREE_PLAN.name,
+    audience: catalogPlan?.audience ?? "Plan anterior",
+    summary: catalogPlan?.summary ?? "Suscripción existente",
+    price: catalogPlan?.price ?? (dbPlan ? Number(dbPlan.price) : FREE_PLAN.price),
+    limits: catalogPlan?.limits ?? readLimits(dbPlan?.limits, LEGACY_PLAN_FALLBACK),
+    features: catalogPlan
+      ? [...catalogPlan.features]
+      : Array.isArray(dbPlan?.features)
       ? dbPlan.features.filter((feature): feature is string => typeof feature === "string")
-      : [...catalogPlan.features],
+      : [...FREE_PLAN.features],
   };
 }
 

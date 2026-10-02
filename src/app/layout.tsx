@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { getPublicSiteUrl, SITE_DESCRIPTION } from "@/lib/site";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -13,6 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: getPublicSiteUrl() ?? undefined,
   title: {
     default: "Tienda Plus — Tu negocio, tu sistema",
     template: "%s | Tienda Plus",
@@ -22,8 +24,10 @@ export const metadata: Metadata = {
     shortcut: "/logo_icono.png",
     apple: "/logo_icono.png",
   },
-  description:
-    "Sistema de gestión, ventas y facturación electrónica para pequeños negocios del Perú. Regístrate, configura tu negocio y empieza a vender.",
+  description: SITE_DESCRIPTION,
+  verification: process.env.GOOGLE_SITE_VERIFICATION
+    ? { google: process.env.GOOGLE_SITE_VERIFICATION }
+    : undefined,
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

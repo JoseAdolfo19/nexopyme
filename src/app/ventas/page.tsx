@@ -3,6 +3,7 @@ import { requireBusiness } from "@/lib/auth";
 import { scope } from "@/lib/prisma";
 import SaleForm from "@/components/SaleForm";
 import AppShell from "@/components/AppShell";
+import { supportsProductBarcodes } from "@/lib/constants";
 
 export const metadata = { title: "Nueva venta" };
 
@@ -16,6 +17,7 @@ export default async function NewSalePage() {
       select: {
         id: true,
         name: true,
+        barcode: true,
         salePrice: true,
         stock: true,
         type: true,
@@ -53,6 +55,7 @@ export default async function NewSalePage() {
         }))}
         customers={customers}
         branches={branches}
+        barcodeEnabled={supportsProductBarcodes(business.businessType)}
       />
     </AppShell>
   );

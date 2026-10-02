@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getCurrentUser, getSession } from "@/lib/auth";
 import { prisma, scope } from "@/lib/prisma";
 import { ROLES } from "@/lib/constants";
+import { getBusinessPlan } from "@/lib/plans";
 
 export type TeamActionResult = { error?: string; ok?: boolean };
 
@@ -47,20 +48,69 @@ export async function saveTeamMemberAction(
     });
   } else if (operation === "update") {
     if (!userId) return { error: "Usuario no válido." };
-    await context.db.businessUser.update({
+    const existingMembership = await context.db.businessUser.findUnique({
       where: { businessId_userId: { businessId: context.businessId, userId } },
-      data: { role, isActive: true },
+      select: { isActive: true },
     });
+    if (!existingMembership) return { error: "El usuario no pertenece a este negocio." };
+
+    if (existingMembership.isActive) {
+      await context.db.businessUser.update({
+        where: { businessId_userId: { businessId: context.businessId, userId } },
+        data: { role },
+      });
+    } else {
+      const plan = await getBusinessPlan(context.businessId);
+      const result = await prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT id FROM businesses WHERE id = ${context.businessId} FOR UPDATE`;
+        const activeUsers = await tx.businessUser.count({
+          where: { businessId: context.businessId, isActive: true },
+        });
+        if (plan.limits.users !== null && activeUsers >= plan.limits.users) {
+          return { error: `Tu plan ${plan.name} permite hasta ${plan.limits.users} usuario(s).` };
+        }
+        await tx.businessUser.update({
+          where: { businessId_userId: { businessId: context.businessId, userId } },
+          data: { role, isActive: true },
+        });
+        return { ok: true };
+      });
+      if (result.error) return result;
+    }
   } else {
     const invitedUser = await prisma.user.findUnique({ where: { email } });
     if (!invitedUser || !invitedUser.isActive) {
       return { error: "No existe un usuario activo con ese correo. Primero debe crear su cuenta." };
     }
-    await context.db.businessUser.upsert({
+    const existingMembership = await context.db.businessUser.findUnique({
       where: { businessId_userId: { businessId: context.businessId, userId: invitedUser.id } },
-      update: { role, isActive: true },
-      create: { businessId: context.businessId, userId: invitedUser.id, role, isActive: true },
+      select: { isActive: true },
     });
+
+    if (existingMembership?.isActive) {
+      await context.db.businessUser.update({
+        where: { businessId_userId: { businessId: context.businessId, userId: invitedUser.id } },
+        data: { role },
+      });
+    } else {
+      const plan = await getBusinessPlan(context.businessId);
+      const result = await prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT id FROM businesses WHERE id = ${context.businessId} FOR UPDATE`;
+        const activeUsers = await tx.businessUser.count({
+          where: { businessId: context.businessId, isActive: true },
+        });
+        if (plan.limits.users !== null && activeUsers >= plan.limits.users) {
+          return { error: `Tu plan ${plan.name} permite hasta ${plan.limits.users} usuario(s).` };
+        }
+        await tx.businessUser.upsert({
+          where: { businessId_userId: { businessId: context.businessId, userId: invitedUser.id } },
+          update: { role, isActive: true },
+          create: { businessId: context.businessId, userId: invitedUser.id, role, isActive: true },
+        });
+        return { ok: true };
+      });
+      if (result.error) return result;
+    }
   }
 
   revalidatePath("/configuracion");

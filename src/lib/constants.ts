@@ -90,42 +90,55 @@ export const PLAN_CATALOG = [
   {
     code: "free",
     name: "Free",
+    audience: "Para empezar",
+    summary: "Gratis para siempre",
     price: 0,
-    limits: { users: 1, documents: 50, businesses: 1, branches: 1 },
-    features: ["1 usuario", "Clientes", "Productos", "Ventas", "Funciones básicas"],
+    limits: { users: 1, documents: 10, businesses: 1, branches: 1, products: 20 },
+    features: ["1 sucursal o almacén", "1 usuario (dueño)", "10 comprobantes al mes", "Catálogo de hasta 20 productos", "Soporte por comunidad o centro de ayuda"],
   },
   {
     code: "emprendedor",
     name: "Emprendedor",
-    price: 19.9,
-    limits: { users: 3, documents: 500, businesses: 1, branches: 1 },
-    features: ["3 usuarios", "Inventario", "Reportes", "Catálogo", "500 comprobantes al mes"],
+    audience: "Básico",
+    summary: "Para pequeños negocios estables o monomarca",
+    price: 49,
+    limits: { users: 2, documents: 100, businesses: 1, branches: 1, products: null },
+    features: ["1 sucursal o almacén", "Hasta 2 usuarios", "100 comprobantes al mes", "Catálogo ilimitado", "Soporte estándar por ticket o email"],
   },
   {
     code: "negocio",
-    name: "Negocio",
-    price: 39.9,
-    limits: { users: 10, documents: 5000, businesses: 1, branches: 3 },
-    features: ["10 usuarios", "Hasta 3 sucursales", "Caja", "Compras", "5,000 comprobantes al mes"],
-  },
-  {
-    code: "multi_sucursal",
-    name: "Multi-Sucursal",
-    price: 59.9,
-    limits: { users: 10, documents: 5000, businesses: 1, branches: 5 },
-    features: ["10 usuarios", "Hasta 5 sucursales", "Caja", "Compras", "5,000 comprobantes al mes compartidos"],
+    name: "PyME",
+    audience: "El más vendido",
+    summary: "Para equipos y negocios en crecimiento",
+    price: 119,
+    limits: { users: 5, documents: null, businesses: 1, branches: 3, products: null },
+    features: ["Hasta 3 sucursales o almacenes", "Hasta 5 usuarios", "Comprobantes ilimitados", "Catálogo ilimitado", "Soporte prioritario por WhatsApp"],
   },
   {
     code: "pro",
-    name: "Pro",
-    price: 69.9,
-    limits: { users: 50, documents: 50000, businesses: 5, branches: 20 },
-    features: ["50 usuarios", "Hasta 20 sucursales", "Multiempresa", "Reportes avanzados", "50,000 comprobantes al mes"],
+    name: "Corporativo",
+    audience: "Premium",
+    summary: "Para cadenas, distribuidoras y empresas grandes",
+    price: 249,
+    limits: { users: null, documents: null, businesses: 1, branches: null, products: null },
+    features: ["Sucursales e inventarios ilimitados", "Usuarios ilimitados", "Comprobantes ilimitados", "Catálogo ilimitado", "Soporte 24/7 y capacitación mensual"],
   },
 ] as const;
 
 export type PlanCode = (typeof PLAN_CATALOG)[number]["code"];
-export type PlanLimits = { users: number; documents: number; businesses: number; branches: number };
+export type PlanLimits = {
+  users: number | null;
+  documents: number | null;
+  businesses: number | null;
+  branches: number | null;
+  products: number | null;
+};
+
+export const BARCODE_BUSINESS_TYPES = ["tienda", "bodega", "minimarket", "ferreteria", "ropa", "online"] as const;
+
+export function supportsProductBarcodes(businessType: string): boolean {
+  return BARCODE_BUSINESS_TYPES.includes(businessType as (typeof BARCODE_BUSINESS_TYPES)[number]);
+}
 
 export const DOCUMENT_TYPES = [
   { value: "boleta", label: "Boleta" },

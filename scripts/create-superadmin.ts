@@ -4,13 +4,20 @@ import { PrismaClient } from "../src/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import pg from "pg";
 
-const email = process.env.SUPERADMIN_EMAIL?.trim().toLowerCase();
-const password = process.env.SUPERADMIN_PASSWORD;
-const name = process.env.SUPERADMIN_NAME?.trim() || "Superadministrador";
-
-if (!email || !password || password.length < 8) {
-  throw new Error("Define SUPERADMIN_EMAIL y SUPERADMIN_PASSWORD (mínimo 8 caracteres)." );
+function getCredentials() {
+  const email = process.env.SUPERADMIN_EMAIL?.trim().toLowerCase();
+  const password = process.env.SUPERADMIN_PASSWORD;
+  if (!email || !password || password.length < 8) {
+    throw new Error("Define SUPERADMIN_EMAIL y SUPERADMIN_PASSWORD (mínimo 8 caracteres).");
+  }
+  return {
+    email,
+    password,
+    name: process.env.SUPERADMIN_NAME?.trim() || "Superadministrador",
+  };
 }
+
+const { email, password, name } = getCredentials();
 
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });

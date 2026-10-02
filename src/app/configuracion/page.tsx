@@ -11,6 +11,10 @@ import { formatSoles } from "@/lib/format";
 
 export const metadata = { title: "Configuración" };
 
+function formatPlanLimit(limit: number | null): string {
+  return limit === null ? "Ilimitado" : limit.toLocaleString("es-PE");
+}
+
 export default async function SettingsPage() {
   const { business, user } = await requireBusiness();
 
@@ -21,7 +25,7 @@ export default async function SettingsPage() {
   });
   const currentMember = members.find((member) => member.user.id === user.id);
 
-  const [branches, plan, documentsUsed] = await Promise.all([
+  const [branches, plan, documentsUsed, productsUsed] = await Promise.all([
     prisma.branch.findMany({
       where: { businessId: business.id, status: "activo" },
       select: { id: true, name: true, address: true, isMain: true },
@@ -29,6 +33,7 @@ export default async function SettingsPage() {
     }),
     getBusinessPlan(business.id),
     countMonthlyFiscalDocuments(prisma, business.id),
+    prisma.product.count({ where: { businessId: business.id, isActive: true } }),
   ]);
 
   const activeModules = (business.modules as string[]) ?? [];
@@ -43,9 +48,9 @@ export default async function SettingsPage() {
 
       <div className="space-y-6">
         <Card>
-          <CardHeader title="Plan y uso" subtitle="Cupos compartidos entre todas las sucursales" />
+          <CardHeader title="Plan y uso" subtitle="Los comprobantes se comparten entre todas las sucursales" />
           <div className="p-5">
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <div>
                 <p className="text-xs font-semibold uppercase text-neutral-500">Plan activo</p>
                 <p className="mt-1 text-lg font-bold text-neutral-900">{plan.name}</p>
@@ -53,27 +58,42 @@ export default async function SettingsPage() {
               </div>
               <div>
                 <p className="text-xs font-semibold uppercase text-neutral-500">Comprobantes fiscales este mes</p>
-                <p className="mt-1 text-lg font-bold text-neutral-900">{documentsUsed.toLocaleString("es-PE")} / {plan.limits.documents.toLocaleString("es-PE")}</p>
+                <p className="mt-1 text-lg font-bold text-neutral-900">{documentsUsed.toLocaleString("es-PE")} / {formatPlanLimit(plan.limits.documents)}</p>
                 <p className="text-sm text-neutral-600">Boletas y facturas, compartidas por sede</p>
               </div>
               <div>
                 <p className="text-xs font-semibold uppercase text-neutral-500">Sucursales</p>
-                <p className="mt-1 text-lg font-bold text-neutral-900">{branches.length} / {plan.limits.branches}</p>
-                <p className="text-sm text-neutral-600">Hasta {plan.limits.branches} en este plan</p>
+                <p className="mt-1 text-lg font-bold text-neutral-900">{branches.length} / {formatPlanLimit(plan.limits.branches)}</p>
+                <p className="text-sm text-neutral-600">Sedes activas del negocio</p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase text-neutral-500">Usuarios y productos</p>
+                <p className="mt-1 text-lg font-bold text-neutral-900">{members.length}/{formatPlanLimit(plan.limits.users)} usuarios</p>
+                <p className="text-sm text-neutral-600">{productsUsed.toLocaleString("es-PE")}/{formatPlanLimit(plan.limits.products)} productos</p>
               </div>
             </div>
             <div className="mt-5 divide-y divide-neutral-100 border-t border-neutral-100">
               {PLAN_CATALOG.map((availablePlan) => (
-                <div key={availablePlan.code} className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm">
-                  <span className={availablePlan.code === plan.code ? "font-bold text-brand-700" : "font-medium text-neutral-800"}>
-                    {availablePlan.name}{availablePlan.code === plan.code ? " · Activo" : ""}
-                  </span>
-                  <span className="text-neutral-600">
-                    {formatSoles(availablePlan.price)}/mes · {availablePlan.limits.branches} sucursal(es) · {availablePlan.limits.documents.toLocaleString("es-PE")} comprobantes
-                  </span>
+                <div key={availablePlan.code} className="grid gap-2 py-4 text-sm sm:grid-cols-[200px_1fr]">
+                  <div>
+                    <p className={availablePlan.code === plan.code ? "font-bold text-brand-700" : "font-semibold text-neutral-900"}>
+                      {availablePlan.name}{availablePlan.code === plan.code ? " · Activo" : ""}
+                    </p>
+                    <p className="text-xs text-neutral-500">{availablePlan.audience}</p>
+                    <p className="mt-1 font-bold text-neutral-800">{formatSoles(availablePlan.price)} / mes</p>
+                  </div>
+                  <div>
+                    <p className="text-neutral-600">{availablePlan.summary}</p>
+                    <ul className="mt-2 grid gap-x-4 gap-y-1 text-xs text-neutral-600 sm:grid-cols-2">
+                      {availablePlan.features.map((feature) => <li key={feature}>• {feature}</li>)}
+                    </ul>
+                  </div>
                 </div>
               ))}
             </div>
+            <p className="mt-4 border-t border-neutral-100 pt-4 text-sm text-neutral-600">
+              Los planes pagados se cobran y activan manualmente después de confirmar el pago. Todavía no hay una pasarela integrada; solicita el cambio al canal de soporte habitual.
+            </p>
           </div>
         </Card>
 

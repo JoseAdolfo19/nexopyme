@@ -10,8 +10,20 @@ async function main() {
   for (const plan of PLAN_CATALOG) {
     await prisma.plan.upsert({
       where: { code: plan.code },
-      update: { ...plan, limits: { ...plan.limits }, features: [...plan.features] },
-      create: { ...plan, limits: { ...plan.limits }, features: [...plan.features] },
+      update: {
+        name: plan.name,
+        price: plan.price,
+        limits: { ...plan.limits },
+        features: [...plan.features],
+        isActive: true,
+      },
+      create: {
+        code: plan.code,
+        name: plan.name,
+        price: plan.price,
+        limits: { ...plan.limits },
+        features: [...plan.features],
+      },
     });
   }
   console.log(`✅ Seed: ${PLAN_CATALOG.length} planes creados/actualizados`);

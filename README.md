@@ -152,13 +152,13 @@ proveedores), ropa (tallas, colores, variantes), etc.
 Efectivo, **Yape**, **Plin**, tarjeta, transferencia, crédito y otro.
 
 ### 💼 Planes y límites
-- Free: 50 comprobantes fiscales al mes y 1 sucursal.
-- Emprendedor: 500 comprobantes fiscales al mes y 1 sucursal.
-- Negocio: 5,000 comprobantes fiscales al mes y hasta 3 sucursales.
-- Multi-Sucursal: S/ 59.90 al mes, 5,000 comprobantes fiscales compartidos y hasta 5 sucursales.
-- Pro: 50,000 comprobantes fiscales al mes y hasta 20 sucursales.
-- Los cupos de boletas y facturas se comparten entre las sucursales; proformas y notas de pedido no consumen el cupo fiscal.
-- El catálogo y los límites quedan activos; la asignación de planes pagados se realiza mediante la suscripción registrada, no hay una pasarela de cobro conectada.
+- **Free — S/ 0/mes:** 1 sucursal, 1 usuario, 10 comprobantes al mes y hasta 20 productos.
+- **Emprendedor — S/ 49/mes:** 1 sucursal, hasta 2 usuarios, 100 comprobantes al mes y productos ilimitados.
+- **PyME — S/ 119/mes:** hasta 3 sucursales, 5 usuarios, comprobantes y productos ilimitados.
+- **Corporativo — S/ 249/mes:** sucursales, usuarios, comprobantes y productos ilimitados.
+- Los límites de usuarios, productos y sucursales se validan en el servidor. Los comprobantes fiscales se comparten entre sedes; proformas y notas de pedido no consumen ese cupo.
+- No hay pasarela conectada: el pago y la activación de planes pagados se coordinan manualmente; solo un superadministrador puede asignarlos tras confirmar el cobro.
+- La captura y búsqueda por código de barras se muestra para tienda, bodega, minimarket, ferretería, ropa y venta online.
 
 ### 📊 Inventario
 - Control de stock por producto con unidades decimales (ej. 0.5 kg).
@@ -213,7 +213,8 @@ npm run lint       # Validación ESLint
 | `DATABASE_URL` | ✅ | Cadena de conexión PostgreSQL usada por Prisma y el adaptador `pg` |
 | `AUTH_SECRET` | ✅ | Clave secreta para firmar sesiones JWT. Generar con `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
 | `NEXT_PUBLIC_APP_NAME` | ❌ | Nombre de la marca mostrado al usuario (por defecto `Tienda Plus`) |
-| `NEXT_PUBLIC_APP_URL` | ❌ | URL pública de la app (por defecto `http://localhost:3000`) |
+| `NEXT_PUBLIC_APP_URL` | ❌ | URL HTTPS pública de producción; en desarrollo usa `http://localhost:3000` |
+| `GOOGLE_SITE_VERIFICATION` | ❌ | Token de propiedad de Google Search Console |
 | `APIPERU_TOKEN` | ❌* | Token privado de API Perú para consultar DNI/RUC |
 | `APIPERU_BASE_URL` | ❌ | URL base de API Perú (por defecto `https://api.apiperu.pe`) |
 | `RESEND_API_KEY` | ❌** | API key de **Resend** para enviar verificación de email y comprobantes PDF |
@@ -227,6 +228,12 @@ npm run lint       # Validación ESLint
 
 \* Sin `APIPERU_TOKEN`, la consulta automática de DNI/RUC devuelve error;
 el resto del sistema funciona normalmente.
+
+### Indexación en buscadores
+
+Configura `NEXT_PUBLIC_APP_URL` con el dominio HTTPS definitivo en producción y, si verificas el sitio mediante la etiqueta HTML, añade `GOOGLE_SITE_VERIFICATION` en el entorno del despliegue. La aplicación publica `/robots.txt` y `/sitemap.xml`; registra el dominio en Google Search Console y envía el sitemap después de desplegar. En Vercel se usa `VERCEL_PROJECT_PRODUCTION_URL` como respaldo si no se define la URL pública.
+
+Estos ajustes permiten rastreo e indexación, pero no garantizan una posición específica en Google. La visibilidad también depende de que el dominio real esté verificado y accesible, la calidad y actualización del contenido, la competencia de cada búsqueda y las referencias externas.
 
 \*\* Sin `RESEND_API_KEY`, no se envían correos de verificación ni comprobantes: el sistema
 registra el enlace en consola/log (`[mailer:dev]`) y en desarrollo lo muestra

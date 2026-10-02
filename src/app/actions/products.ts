@@ -2,26 +2,25 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { scope } from "@/lib/prisma";
+import { prisma, scope } from "@/lib/prisma";
 import { categorySchema, productSchema } from "@/lib/validations";
-import { getCurrentUser, getSession } from "@/lib/auth";
+import { getCurrentUser, getSession, requireBusiness } from "@/lib/auth";
 import { audit } from "@/lib/audit";
+import { supportsProductBarcodes } from "@/lib/constants";
+import { getBusinessPlan } from "@/lib/plans";
 
 type ActionResult = { error?: string };
 
 export async function createProductAction(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
-  const user = await getCurrentUser();
-  const session = await getSession();
-  const businessId = session?.businessId;
-  if (!user || !businessId) return { error: "Sesión no válida." };
-  const db = scope(businessId);
+  const { user, business } = await requireBusiness();
+  const businessId = business.id;
 
   const parsed = productSchema.safeParse({
     name: formData.get("name"),
     description: formData.get("description") ?? "",
     categoryId: formData.get("category_id") ?? "",
     code: formData.get("code") ?? "",
-    barcode: formData.get("barcode") ?? "",
+    barcode: supportsProductBarcodes(business.businessType) ? formData.get("barcode") ?? "" : "",
     brand: formData.get("brand") ?? "",
     type: formData.get("type") ?? "producto",
     unit: formData.get("unit") ?? "UNIDAD",
@@ -35,24 +34,35 @@ export async function createProductAction(_prev: ActionResult, formData: FormDat
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Revisa los datos." };
   const d = parsed.data;
 
-  await db.product.create({
-    data: {
-      businessId,
-      name: d.name,
-      description: d.description || null,
-      categoryId: d.categoryId || null,
-      code: d.code || null,
-      barcode: d.barcode || null,
-      brand: d.brand || null,
-      type: d.type,
-      unit: d.unit,
-      purchasePrice: d.purchasePrice,
-      salePrice: d.salePrice,
-      stock: d.stock,
-      minStock: d.minStock,
-      trackStock: d.trackStock,
-    },
+  const plan = await getBusinessPlan(businessId);
+  const createResult = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM businesses WHERE id = ${businessId} FOR UPDATE`;
+    const productCount = await tx.product.count({ where: { businessId, isActive: true } });
+    if (plan.limits.products !== null && productCount >= plan.limits.products) {
+      return { error: `El plan ${plan.name} permite hasta ${plan.limits.products} productos.` };
+    }
+
+    await tx.product.create({
+      data: {
+        businessId,
+        name: d.name,
+        description: d.description || null,
+        categoryId: d.categoryId || null,
+        code: d.code || null,
+        barcode: d.barcode || null,
+        brand: d.brand || null,
+        type: d.type,
+        unit: d.unit,
+        purchasePrice: d.purchasePrice,
+        salePrice: d.salePrice,
+        stock: d.stock,
+        minStock: d.minStock,
+        trackStock: d.trackStock,
+      },
+    });
+    return { ok: true };
   });
+  if (createResult.error) return createResult;
 
   await audit({
     action: "product.create",
@@ -67,10 +77,8 @@ export async function createProductAction(_prev: ActionResult, formData: FormDat
 }
 
 export async function updateProductAction(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
-  const user = await getCurrentUser();
-  const session = await getSession();
-  const businessId = session?.businessId;
-  if (!user || !businessId) return { error: "Sesión no válida." };
+  const { user, business } = await requireBusiness();
+  const businessId = business.id;
   const db = scope(businessId);
 
   const id = String(formData.get("id") ?? "");
@@ -79,7 +87,7 @@ export async function updateProductAction(_prev: ActionResult, formData: FormDat
     description: formData.get("description") ?? "",
     categoryId: formData.get("category_id") ?? "",
     code: formData.get("code") ?? "",
-    barcode: formData.get("barcode") ?? "",
+    barcode: supportsProductBarcodes(business.businessType) ? formData.get("barcode") ?? "" : "",
     brand: formData.get("brand") ?? "",
     type: formData.get("type") ?? "producto",
     unit: formData.get("unit") ?? "UNIDAD",

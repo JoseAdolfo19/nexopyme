@@ -90,7 +90,7 @@ export async function createSaleAction(_prev: ActionResult, formData: FormData):
 
     if (d.docType === "boleta" || d.docType === "factura") {
       const used = await countMonthlyFiscalDocuments(tx, businessId);
-      if (used >= plan.limits.documents) {
+      if (plan.limits.documents !== null && used >= plan.limits.documents) {
         return { error: `Alcanzaste el límite mensual de ${plan.limits.documents} comprobantes de tu plan ${plan.name}.` };
       }
     }

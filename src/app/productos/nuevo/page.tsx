@@ -3,6 +3,7 @@ import { requireBusiness } from "@/lib/auth";
 import { scope } from "@/lib/prisma";
 import ProductForm from "@/components/ProductForm";
 import AppShell from "@/components/AppShell";
+import { supportsProductBarcodes } from "@/lib/constants";
 
 export const metadata = { title: "Nuevo producto" };
 
@@ -23,7 +24,7 @@ export default async function NewProductPage() {
         </Link>
         <h1 className="mt-1 text-2xl font-bold text-neutral-900">Nuevo producto</h1>
       </div>
-      <ProductForm categories={categories} />
+      <ProductForm categories={categories} barcodeEnabled={supportsProductBarcodes(business.businessType)} />
     </AppShell>
   );
 }

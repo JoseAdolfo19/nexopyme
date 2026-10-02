@@ -4,6 +4,7 @@ import { requireBusiness } from "@/lib/auth";
 import { scope } from "@/lib/prisma";
 import ProductForm from "@/components/ProductForm";
 import AppShell from "@/components/AppShell";
+import { supportsProductBarcodes } from "@/lib/constants";
 
 export const metadata = { title: "Editar producto" };
 
@@ -37,12 +38,14 @@ export default async function EditProductPage({
       </div>
       <ProductForm
         categories={categories}
+        barcodeEnabled={supportsProductBarcodes(business.businessType)}
         product={{
           id: product.id,
           name: product.name,
           description: product.description,
           categoryId: product.categoryId,
           code: product.code,
+          barcode: product.barcode,
           brand: product.brand,
           type: product.type,
           unit: product.unit,

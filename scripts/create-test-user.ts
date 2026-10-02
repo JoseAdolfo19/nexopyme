@@ -2,7 +2,7 @@ import "dotenv/config";
 import { randomBytes } from "node:crypto";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
-import { modulesForType } from "../src/lib/constants";
+import { modulesForType, PLAN_CATALOG } from "../src/lib/constants";
 import bcrypt from "bcryptjs";
 
 const TEST_EMAIL = process.env.TEST_USER_EMAIL ?? "pruebas@tiendaplus.test";
@@ -61,15 +61,22 @@ async function main() {
       });
     }
 
+    const freePlan = PLAN_CATALOG[0];
     const plan = await tx.plan.upsert({
-      where: { code: "free" },
-      update: {},
+      where: { code: freePlan.code },
+      update: {
+        name: freePlan.name,
+        price: freePlan.price,
+        limits: { ...freePlan.limits },
+        features: [...freePlan.features],
+        isActive: true,
+      },
       create: {
-        code: "free",
-        name: "Free",
-        price: 0,
-        limits: { users: 1, documents: 50, businesses: 1, branches: 1 },
-        features: ["Funciones básicas"],
+        code: freePlan.code,
+        name: freePlan.name,
+        price: freePlan.price,
+        limits: { ...freePlan.limits },
+        features: [...freePlan.features],
       },
     });
 
