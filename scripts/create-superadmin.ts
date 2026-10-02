@@ -15,7 +15,7 @@ if (!email || !password || password.length < 8) {
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
 
-try {
+async function main() {
   const passwordHash = await bcrypt.hash(password, 12);
   const user = await prisma.user.upsert({
     where: { email },
@@ -24,7 +24,14 @@ try {
     select: { email: true },
   });
   console.log(`Superadministrador listo: ${user.email}`);
-} finally {
-  await prisma.$disconnect();
-  await pool.end();
 }
+
+main()
+  .catch((error) => {
+    console.error("No se pudo crear el superadministrador:", error);
+    process.exitCode = 1;
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+    await pool.end();
+  });
