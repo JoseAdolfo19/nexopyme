@@ -39,6 +39,12 @@ export default async function LoginPage() {
             Crear cuenta gratis
           </Link>
         </p>
+        <p className="mt-2 text-center text-sm text-neutral-600">
+          ¿Olvidaste tu contraseña?{" "}
+          <Link href="/recuperar-password" className="font-semibold text-brand-600 hover:underline">
+            Recuperarla
+          </Link>
+        </p>
       </div>
     </div>
   );

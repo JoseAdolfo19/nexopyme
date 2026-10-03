@@ -4,6 +4,9 @@ import {
   createEmailVerificationToken,
   verifyEmailToken,
   emailVerificationUrl,
+  createPasswordResetToken,
+  verifyPasswordResetToken,
+  passwordResetUrl,
 } from "@/lib/verification";
 
 // Garantiza secreto de desarrollo (NODE_ENV !== production en tests).
@@ -45,5 +48,36 @@ describe("token de verificación de correo", () => {
     const url = emailVerificationUrl("abc%def");
     expect(url).toContain("https://tiendaplus.test/verify-email");
     expect(url).toContain(encodeURIComponent("abc%def"));
+  });
+});
+
+describe("token de recuperación de contraseña", () => {
+  it("genera un token firmado que verifica correctamente", async () => {
+    const token = await createPasswordResetToken("user_456");
+    expect(token).toBeTruthy();
+
+    const payload = await verifyPasswordResetToken(token);
+    expect(payload).toEqual({ purpose: "reset-password", userId: "user_456" });
+  });
+
+  it("devuelve null para un token inválido o manipulado", async () => {
+    const token = await createPasswordResetToken("user_456");
+    const tampered = token.slice(0, -4) + "AAAA";
+
+    await expect(verifyPasswordResetToken(tampered)).resolves.toBeNull();
+    await expect(verifyPasswordResetToken("basura")).resolves.toBeNull();
+    await expect(verifyPasswordResetToken("")).resolves.toBeNull();
+  });
+
+  it("rechaza tokens de verificación de correo (propósito distinto)", async () => {
+    const verifyToken = await createEmailVerificationToken("user_456");
+    await expect(verifyPasswordResetToken(verifyToken)).resolves.toBeNull();
+  });
+
+  it("construye la URL pública de restablecimiento con el token", () => {
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://tiendaplus.test");
+    const url = passwordResetUrl("xy%z9");
+    expect(url).toContain("https://tiendaplus.test/restablecer-password");
+    expect(url).toContain(encodeURIComponent("xy%z9"));
   });
 });

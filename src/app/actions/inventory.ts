@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { scope } from "@/lib/prisma";
-import { getCurrentUser, getSession } from "@/lib/auth";
+import { FORBIDDEN_ROLE, requireRole } from "@/lib/permissions";
 import { round2 } from "@/lib/sunat";
 import { audit } from "@/lib/audit";
 
@@ -10,10 +10,10 @@ type ActionResult = { error?: string };
 
 /** Ajuste de stock: entrada, salida o corrección manual. */
 export async function adjustStockAction(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
-  const user = await getCurrentUser();
-  const session = await getSession();
-  const businessId = session?.businessId;
-  if (!user || !businessId) return { error: "Sesión no válida." };
+  // Solo administradores y personal de almacén pueden tocar el stock.
+  const ctx = await requireRole(["administrador", "almacen"]);
+  if (!ctx) return { error: FORBIDDEN_ROLE };
+  const { user, businessId } = ctx;
   const db = scope(businessId);
 
   const productId = String(formData.get("product_id") ?? "");

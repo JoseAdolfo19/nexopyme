@@ -65,9 +65,6 @@ export const MODULE_MENU: Record<string, { label: string; href: string; emoji: s
   clientes: { label: "Clientes", href: "/clientes", emoji: "👥" },
   comprobantes: { label: "Comprobantes", href: "/comprobantes", emoji: "📄" },
   reportes: { label: "Reportes", href: "/reportes", emoji: "📈" },
-  compras: { label: "Compras", href: "/compras", emoji: "🛍️" },
-  proveedores: { label: "Proveedores", href: "/proveedores", emoji: "🚚" },
-  caja: { label: "Caja", href: "/caja", emoji: "💰" },
   configuracion: { label: "Configuración", href: "/configuracion", emoji: "⚙️" },
   superadmin: { label: "Panel global", href: "/superadmin", emoji: "🛡️" },
 };

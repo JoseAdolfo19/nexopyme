@@ -6,8 +6,17 @@ import { prisma } from "@/lib/prisma";
 import { loginSchema, registerSchema } from "@/lib/validations";
 import { clearSession, getCurrentUser, setSession } from "@/lib/auth";
 import { AUTH_RATE_LIMITS, assertSameOrigin, getClientIp, rateLimit } from "@/lib/security";
-import { createEmailVerificationToken, emailVerificationUrl, sendVerificationEmail } from "@/lib/verification";
+import {
+  createEmailVerificationToken,
+  createPasswordResetToken,
+  emailVerificationUrl,
+  passwordResetUrl,
+  sendPasswordResetEmail,
+  sendVerificationEmail,
+  verifyPasswordResetToken,
+} from "@/lib/verification";
 import { isEmailDeliveryConfigured } from "@/lib/mailer";
+import { audit } from "@/lib/audit";
 
 type ActionResult = { error?: string; ok?: boolean };
 
@@ -180,4 +189,102 @@ export async function loginFormAction(formData: FormData): Promise<void> {
 /** Wrapper de 1 argumento para usar directo en <form action> (registro). */
 export async function registerFormAction(formData: FormData): Promise<void> {
   await registerAction({}, formData);
+}
+
+// ==================== RECUPERACIÓN DE CONTRASEÑA ====================
+
+export type PasswordResetResult = { error?: string; ok?: boolean; devUrl?: string };
+
+/**
+ * Paso 1: pide un correo y envía el enlace de recuperación.
+ * La respuesta es SIEMPRE genérica para no revelar si el correo tiene cuenta.
+ */
+export async function requestPasswordResetAction(
+  _prev: PasswordResetResult,
+  formData: FormData,
+): Promise<PasswordResetResult> {
+  const ip = await getClientIp();
+  const emailRaw = String(formData.get("email") ?? "").toLowerCase().trim();
+
+  const rl = rateLimit(`reset-request:${emailRaw}:${ip}`, { limit: 5, windowMs: 10 * 60_000 });
+  if (!rl.ok) return { error: "Demasiadas solicitudes. Espera unos minutos antes de intentar de nuevo." };
+
+  try {
+    await assertSameOrigin();
+  } catch {
+    return { error: "Solicitud no válida." };
+  }
+
+  if (!/^\S+@\S+\.\S+$/.test(emailRaw)) {
+    return { error: "Escribe un correo válido." };
+  }
+
+  const generic: PasswordResetResult = { ok: true };
+
+  const user = await prisma.user.findUnique({ where: { email: emailRaw } });
+  if (!user || !user.isActive) return generic;
+
+  // El token se genera siempre que el usuario exista; el fallo del mailer no
+  // debe impedir el flujo en desarrollo (mismo criterio que el registro).
+  const token = await createPasswordResetToken(user.id);
+  const url = passwordResetUrl(token);
+
+  try {
+    await sendPasswordResetEmail(user.email, url);
+  } catch (error) {
+    console.error("[password-reset] No se pudo enviar el correo:", error);
+  }
+
+  // En desarrollo no hay correo real accesible: devolvemos el enlace para
+  // poder probar el flujo completo (mismo criterio que el registro).
+  if (process.env.NODE_ENV !== "production") {
+    return { ...generic, devUrl: url };
+  }
+  return generic;
+}
+
+/**
+ * Paso 2: aplica la nueva contraseña con un token válido de 1 hora.
+ */
+export async function resetPasswordAction(
+  _prev: ActionResult,
+  formData: FormData,
+): Promise<ActionResult> {
+  const ip = await getClientIp();
+  const rl = rateLimit(`reset-apply:${ip}`, { limit: 10, windowMs: 15 * 60_000 });
+  if (!rl.ok) return { error: "Demasiados intentos. Espera unos minutos." };
+
+  try {
+    await assertSameOrigin();
+  } catch {
+    return { error: "Solicitud no válida." };
+  }
+
+  const token = String(formData.get("token") ?? "");
+  const password = String(formData.get("new_password") ?? "");
+  const passwordConfirm = String(formData.get("password_confirm") ?? "");
+
+  if (password.length < 8) return { error: "La nueva contraseña debe tener al menos 8 caracteres." };
+  if (password !== passwordConfirm) return { error: "Las contraseñas no coinciden." };
+
+  const payload = await verifyPasswordResetToken(token);
+  if (!payload) {
+    return { error: "El enlace de recuperación no es válido o expiró. Solicita uno nuevo." };
+  }
+
+  const user = await prisma.user.findUnique({ where: { id: payload.userId } });
+  if (!user || !user.isActive) return { error: "La cuenta no existe o está desactivada." };
+
+  const passwordHash = await bcrypt.hash(password, 12);
+  await prisma.user.update({ where: { id: user.id }, data: { passwordHash } });
+
+  await audit({
+    action: "auth.password_reset",
+    userId: user.id,
+    entityType: "User",
+    entityId: user.id,
+    newValues: { method: "reset-token" },
+  });
+
+  return { ok: true };
 }

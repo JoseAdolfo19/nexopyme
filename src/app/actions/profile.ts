@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { rateLimit } from "@/lib/security";
 
 export type ProfileActionResult = { error?: string; ok?: boolean };
 
@@ -19,11 +20,20 @@ export async function updateProfileAction(
   const newPassword = String(formData.get("new_password") ?? "");
 
   if (name.length < 2) return { error: "El nombre debe tener al menos 2 caracteres." };
-  if (newPassword && newPassword.length < 8) {
-    return { error: "La nueva contraseña debe tener al menos 8 caracteres." };
-  }
-  if (newPassword && !(await bcrypt.compare(currentPassword, user.passwordHash))) {
-    return { error: "La contraseña actual no es correcta." };
+
+  if (newPassword) {
+    // Limitar intentos de cambio de contraseña por usuario (fuerza bruta
+    // de la contraseña actual).
+    const rl = rateLimit(`profile-password:${user.id}`, { limit: 5, windowMs: 15 * 60_000 });
+    if (!rl.ok) {
+      return { error: "Demasiados intentos para cambiar la contraseña. Espera unos minutos." };
+    }
+    if (newPassword.length < 8) {
+      return { error: "La nueva contraseña debe tener al menos 8 caracteres." };
+    }
+    if (!(await bcrypt.compare(currentPassword, user.passwordHash))) {
+      return { error: "La contraseña actual no es correcta." };
+    }
   }
 
   await prisma.user.update({

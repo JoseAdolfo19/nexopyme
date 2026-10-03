@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma, scope } from "@/lib/prisma";
 import { saleSchema } from "@/lib/validations";
-import { getCurrentUser, getSession, requireBusiness } from "@/lib/auth";
+import { requireBusiness } from "@/lib/auth";
+import { FORBIDDEN_ROLE, getRoleInBusiness, requireRole } from "@/lib/permissions";
 import { computeTotals, createDocument, round2 } from "@/lib/sunat";
 import { audit } from "@/lib/audit";
 import { countMonthlyFiscalDocuments, getBusinessPlan } from "@/lib/plans";
@@ -22,6 +23,11 @@ type ActionResult = { error?: string };
 export async function createSaleAction(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
   const { user, business } = await requireBusiness();
   const businessId = business.id;
+  // Vendedores y administradores pueden registrar ventas.
+  const saleRole = await getRoleInBusiness(user.id, businessId);
+  if (saleRole !== "administrador" && saleRole !== "vendedor") {
+    return { error: FORBIDDEN_ROLE };
+  }
   const db = scope(businessId);
 
   const itemsRaw = [];
@@ -221,10 +227,10 @@ export async function createSaleAction(_prev: ActionResult, formData: FormData):
 }
 
 export async function cancelSaleAction(formData: FormData): Promise<void> {
-  const user = await getCurrentUser();
-  const session = await getSession();
-  const businessId = session?.businessId;
-  if (!user || !businessId) return;
+  // Anular una venta repone stock y afecta comprobantes: solo administradores.
+  const ctx = await requireRole(["administrador"]);
+  if (!ctx) return;
+  const { user, businessId } = ctx;
   const db = scope(businessId);
 
   const id = String(formData.get("id") ?? "");

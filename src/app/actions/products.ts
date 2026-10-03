@@ -4,16 +4,23 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma, scope } from "@/lib/prisma";
 import { categorySchema, productSchema } from "@/lib/validations";
-import { getCurrentUser, getSession, requireBusiness } from "@/lib/auth";
+import { requireBusiness } from "@/lib/auth";
+import { FORBIDDEN_ROLE, getRoleInBusiness, requireRole } from "@/lib/permissions";
 import { audit } from "@/lib/audit";
-import { supportsProductBarcodes } from "@/lib/constants";
+import { supportsProductBarcodes, type BusinessRole } from "@/lib/constants";
 import { getBusinessPlan } from "@/lib/plans";
 
 type ActionResult = { error?: string };
 
+const PRODUCT_ROLES: readonly BusinessRole[] = ["administrador", "almacen"];
+
 export async function createProductAction(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
   const { user, business } = await requireBusiness();
   const businessId = business.id;
+  const role = await getRoleInBusiness(user.id, businessId);
+  if (!role || !PRODUCT_ROLES.includes(role)) {
+    return { error: FORBIDDEN_ROLE };
+  }
 
   const parsed = productSchema.safeParse({
     name: formData.get("name"),
@@ -79,6 +86,10 @@ export async function createProductAction(_prev: ActionResult, formData: FormDat
 export async function updateProductAction(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
   const { user, business } = await requireBusiness();
   const businessId = business.id;
+  const role = await getRoleInBusiness(user.id, businessId);
+  if (!role || !PRODUCT_ROLES.includes(role)) {
+    return { error: FORBIDDEN_ROLE };
+  }
   const db = scope(businessId);
 
   const id = String(formData.get("id") ?? "");
@@ -133,10 +144,10 @@ export async function updateProductAction(_prev: ActionResult, formData: FormDat
 }
 
 export async function deleteProductAction(formData: FormData): Promise<void> {
-  const user = await getCurrentUser();
-  const session = await getSession();
-  if (!user || !session?.businessId) return;
-  const db = scope(session.businessId);
+  const ctx = await requireRole(PRODUCT_ROLES);
+  if (!ctx) return;
+  const { user, businessId } = ctx;
+  const db = scope(businessId);
 
   const id = String(formData.get("id") ?? "");
   await db.product.update({ where: { id }, data: { isActive: false } });
@@ -144,7 +155,7 @@ export async function deleteProductAction(formData: FormData): Promise<void> {
   await audit({
     action: "product.delete",
     userId: user.id,
-    businessId: session.businessId,
+    businessId,
     entityType: "Product",
     entityId: id,
   });
@@ -153,10 +164,9 @@ export async function deleteProductAction(formData: FormData): Promise<void> {
 }
 
 export async function createCategoryAction(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
-  const user = await getCurrentUser();
-  const session = await getSession();
-  const businessId = session?.businessId;
-  if (!user || !businessId) return { error: "Sesión no válida." };
+  const ctx = await requireRole(PRODUCT_ROLES);
+  if (!ctx) return { error: FORBIDDEN_ROLE };
+  const { user, businessId } = ctx;
   const db = scope(businessId);
 
   const parsed = categorySchema.safeParse({

@@ -32,6 +32,8 @@ export async function assignBusinessPlanAction(
       where: { code: plan.code },
       update: {
         name: plan.name,
+        audience: plan.audience,
+        summary: plan.summary,
         price: plan.price,
         limits: { ...plan.limits },
         features: [...plan.features],
@@ -40,6 +42,8 @@ export async function assignBusinessPlanAction(
       create: {
         code: plan.code,
         name: plan.name,
+        audience: plan.audience,
+        summary: plan.summary,
         price: plan.price,
         limits: { ...plan.limits },
         features: [...plan.features],

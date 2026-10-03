@@ -1,15 +1,25 @@
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
+import { rateLimit } from "@/lib/security";
 import { lookupDocument, LookupError } from "@/lib/lookups/chequea";
 
 /**
  * GET /api/sunat/lookup?docNumber=12345678
  *
  * Devuelve los datos del documento (DNI o RUC) consultando API Perú.
- * Requiere sesión iniciada (cualquier usuario autenticado).
+ * Requiere sesión iniciada (cualquier usuario autenticado) y está sujeto a
+ * un límite por usuario para no agotar la cuota del token de API Perú.
  */
 export async function GET(req: Request) {
-  await requireUser();
+  const user = await requireUser();
+  const rl = rateLimit(`sunat-lookup:${user.id}`, { limit: 20, windowMs: 60_000 });
+  if (!rl.ok) {
+    return NextResponse.json(
+      { ok: false, error: "Demasiadas consultas. Intenta en un minuto." },
+      { status: 429 },
+    );
+  }
+
   const { searchParams } = new URL(req.url);
   const docNumber = (searchParams.get("docNumber") ?? "").trim();
 

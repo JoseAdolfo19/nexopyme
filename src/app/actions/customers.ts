@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { scope } from "@/lib/prisma";
 import { customerSchema } from "@/lib/validations";
-import { getCurrentUser, getSession } from "@/lib/auth";
+import { FORBIDDEN_ROLE, requireRole } from "@/lib/permissions";
 import { audit } from "@/lib/audit";
 
 type ActionResult = { error?: string };
@@ -47,10 +47,10 @@ async function upsertCustomerRecord(businessId: string, data: CustomerData) {
 }
 
 export async function createCustomerAction(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
-  const user = await getCurrentUser();
-  const session = await getSession();
-  const businessId = session?.businessId;
-  if (!user || !businessId) return { error: "Sesión no válida." };
+  // Vendedores y administradores pueden registrar clientes (p. ej. al vender).
+  const ctx = await requireRole(["administrador", "vendedor"]);
+  if (!ctx) return { error: FORBIDDEN_ROLE };
+  const { user, businessId } = ctx;
 
   const parsed = customerSchema.safeParse({
     docType: formData.get("doc_type") ?? "DNI",
@@ -92,10 +92,10 @@ export async function createCustomerAction(_prev: ActionResult, formData: FormDa
 }
 
 export async function updateCustomerAction(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
-  const user = await getCurrentUser();
-  const session = await getSession();
-  const businessId = session?.businessId;
-  if (!user || !businessId) return { error: "Sesión no válida." };
+  // Modificar fichas de clientes: solo administradores.
+  const ctx = await requireRole(["administrador"]);
+  if (!ctx) return { error: FORBIDDEN_ROLE };
+  const { user, businessId } = ctx;
   const db = scope(businessId);
 
   const id = String(formData.get("id") ?? "");
@@ -141,10 +141,10 @@ export async function updateCustomerAction(_prev: ActionResult, formData: FormDa
 }
 
 export async function deleteCustomerAction(formData: FormData): Promise<void> {
-  const user = await getCurrentUser();
-  const session = await getSession();
-  const businessId = session?.businessId;
-  if (!user || !businessId) return;
+  // Eliminar clientes: solo administradores.
+  const ctx = await requireRole(["administrador"]);
+  if (!ctx) return;
+  const { user, businessId } = ctx;
   const db = scope(businessId);
 
   const id = String(formData.get("id") ?? "");
@@ -176,10 +176,10 @@ export async function createCustomerFormAction(formData: FormData): Promise<void
 export async function createCustomerForSaleAction(formData: FormData): Promise<
   { error: string } | { customer: { id: string; name: string; docType: string; docNumber: string | null } }
 > {
-  const user = await getCurrentUser();
-  const session = await getSession();
-  const businessId = session?.businessId;
-  if (!user || !businessId) return { error: "Sesión no válida." };
+  // Registro de cliente en plena venta: vendedores y administradores.
+  const ctx = await requireRole(["administrador", "vendedor"]);
+  if (!ctx) return { error: FORBIDDEN_ROLE };
+  const { user, businessId } = ctx;
 
   const parsed = customerSchema.safeParse({
     docType: formData.get("doc_type") ?? "DNI",
