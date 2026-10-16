@@ -4,8 +4,9 @@ const nextConfig: NextConfig = {
   // Comprimir respuestas y ocultar el header X-Powered-By
   compress: true,
   poweredByHeader: false,
-  // bcryptjs es una librería nativa de servidor; evitar su empaquetado en edge
-  serverExternalPackages: ["bcryptjs"],
+  // bcryptjs y nodemailer son librerías nativas de servidor; evitar su
+  // empaquetado en el bundle del servidor
+  serverExternalPackages: ["bcryptjs", "nodemailer"],
   // Cabeceras de seguridad básicas para todas las rutas
   async headers() {
     return [
