@@ -8,28 +8,42 @@ import { deleteCustomerAction } from "@/app/actions/customers";
 
 export const metadata = { title: "Clientes" };
 
-export default async function CustomersPage() {
+const PAGE_SIZE = 20;
+
+type Props = { searchParams: Promise<{ page?: string }> };
+
+export default async function CustomersPage({ searchParams }: Props) {
   const { business } = await requireBusiness();
   const db = scope(business.id);
 
-  const customers = await db.customer.findMany({
-    where: { businessId: business.id, isActive: true },
-    include: {
-      _count: { select: { sales: true } },
-      sales: {
-        where: { status: "completada" },
-        select: { total: true, createdAt: true },
+  const { page: pageParam } = await searchParams;
+  const page = Math.max(1, Number(pageParam ?? "1") || 1);
+
+  const [customers, total] = await Promise.all([
+    db.customer.findMany({
+      where: { businessId: business.id, isActive: true },
+      include: {
+        _count: { select: { sales: true } },
+        sales: {
+          where: { status: "completada" },
+          select: { total: true, createdAt: true },
+        },
       },
-    },
-    orderBy: { createdAt: "desc" },
-  });
+      orderBy: { createdAt: "desc" },
+      take: PAGE_SIZE,
+      skip: (page - 1) * PAGE_SIZE,
+    }),
+    db.customer.count({ where: { businessId: business.id, isActive: true } }),
+  ]);
+
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
     <AppShell>
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-neutral-900">Mis clientes</h1>
-          <p className="text-neutral-500">{customers.length} clientes registrados</p>
+          <p className="text-neutral-500">{total} clientes registrados</p>
         </div>
         <Link
           href="/clientes/nuevo"
@@ -39,7 +53,7 @@ export default async function CustomersPage() {
         </Link>
       </div>
 
-      {customers.length === 0 ? (
+      {total === 0 ? (
         <Card>
           <EmptyState
             emoji="👥"
@@ -100,6 +114,35 @@ export default async function CustomersPage() {
               </Card>
             );
           })}
+        </div>
+      )}
+
+      {/* Paginación */}
+      {totalPages > 1 && (
+        <div className="mt-6 flex items-center justify-between">
+          {page > 1 ? (
+            <Link
+              href={`/clientes?page=${page - 1}`}
+              className="rounded-xl border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
+            >
+              ← Anterior
+            </Link>
+          ) : (
+            <span />
+          )}
+          <span className="text-sm text-neutral-500">
+            Página {page} de {totalPages}
+          </span>
+          {page < totalPages ? (
+            <Link
+              href={`/clientes?page=${page + 1}`}
+              className="rounded-xl border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
+            >
+              Siguiente →
+            </Link>
+          ) : (
+            <span />
+          )}
         </div>
       )}
     </AppShell>

@@ -8,15 +8,29 @@ import { deleteProductAction } from "@/app/actions/products";
 
 export const metadata = { title: "Mis productos" };
 
-export default async function ProductsPage() {
+const PAGE_SIZE = 20;
+
+type Props = { searchParams: Promise<{ page?: string }> };
+
+export default async function ProductsPage({ searchParams }: Props) {
   const { business } = await requireBusiness();
   const db = scope(business.id);
 
-  const products = await db.product.findMany({
-    where: { businessId: business.id, isActive: true },
-    include: { category: true },
-    orderBy: { createdAt: "desc" },
-  });
+  const { page: pageParam } = await searchParams;
+  const page = Math.max(1, Number(pageParam ?? "1") || 1);
+
+  const [products, total] = await Promise.all([
+    db.product.findMany({
+      where: { businessId: business.id, isActive: true },
+      include: { category: true },
+      orderBy: { createdAt: "desc" },
+      take: PAGE_SIZE,
+      skip: (page - 1) * PAGE_SIZE,
+    }),
+    db.product.count({ where: { businessId: business.id, isActive: true } }),
+  ]);
+
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   const categories = await db.category.findMany({
     where: { businessId: business.id, isActive: true },
@@ -27,7 +41,7 @@ export default async function ProductsPage() {
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-neutral-900">Mis productos</h1>
-          <p className="text-neutral-500">{products.length} productos registrados</p>
+          <p className="text-neutral-500">{total} productos registrados</p>
         </div>
         <Link
           href="/productos/nuevo"
@@ -48,7 +62,7 @@ export default async function ProductsPage() {
         </div>
       )}
 
-      {products.length === 0 ? (
+      {total === 0 ? (
         <Card>
           <EmptyState
             emoji="📦"
@@ -103,6 +117,35 @@ export default async function ProductsPage() {
               </div>
             </Card>
           ))}
+        </div>
+      )}
+
+      {/* Paginación */}
+      {totalPages > 1 && (
+        <div className="mt-6 flex items-center justify-between">
+          {page > 1 ? (
+            <Link
+              href={`/productos?page=${page - 1}`}
+              className="rounded-xl border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
+            >
+              ← Anterior
+            </Link>
+          ) : (
+            <span />
+          )}
+          <span className="text-sm text-neutral-500">
+            Página {page} de {totalPages}
+          </span>
+          {page < totalPages ? (
+            <Link
+              href={`/productos?page=${page + 1}`}
+              className="rounded-xl border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
+            >
+              Siguiente →
+            </Link>
+          ) : (
+            <span />
+          )}
         </div>
       )}
     </AppShell>

@@ -1,8 +1,7 @@
 import "dotenv/config";
 import bcrypt from "bcryptjs";
 import { PrismaClient } from "../src/generated/prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
-import pg from "pg";
+import { createDb } from "./db";
 
 function getCredentials() {
   const email = process.env.SUPERADMIN_EMAIL?.trim().toLowerCase();
@@ -19,8 +18,7 @@ function getCredentials() {
 
 const { email, password, name } = getCredentials();
 
-const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
-const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
+const prisma: PrismaClient = createDb();
 
 async function main() {
   const passwordHash = await bcrypt.hash(password, 12);
@@ -40,5 +38,4 @@ main()
   })
   .finally(async () => {
     await prisma.$disconnect();
-    await pool.end();
   });

@@ -1,17 +1,17 @@
-/**
+﻿/**
  * Seed E2E temporal para prueba de aislamiento multi-tenant.
  * Crea dos usuarios con negocios, productos, clientes, ventas y comprobantes.
  * No forma parte de la app: borrar tras la prueba.
  */
 import "dotenv/config";
-import { PrismaPg } from "@prisma/adapter-pg";
+import { createDb } from "./db";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { modulesForType } from "../src/lib/constants";
 import { SignJWT } from "jose";
 import bcrypt from "bcryptjs";
 
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
-const prisma = new PrismaClient({ adapter });
+const prisma: PrismaClient = createDb();
+
 
 function getSeedPassword(): string {
   const value = process.env.E2E_SEED_PASSWORD;
@@ -252,3 +252,4 @@ async function main() {
 main()
   .catch((e) => { console.error("SEED ERROR:", e); process.exitCode = 1; })
   .finally(async () => { await prisma.$disconnect(); });
+

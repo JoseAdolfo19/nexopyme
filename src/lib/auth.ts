@@ -15,6 +15,8 @@ const secret = () => new TextEncoder().encode(appSecretKey());
 export type SessionPayload = {
   userId: string;
   businessId?: string;
+  /** Versión del token: bump en logout/cambio de contraseña invalida sesiones. */
+  tokenVersion?: number;
   [key: string]: unknown;
 };
 
@@ -54,12 +56,25 @@ export const getCurrentUser = cache(async () => {
     });
     if (!user || !user.isActive) return null;
 
+    // Revocación de sesiones: la versión del token debe coincidir con la BD.
+    // logout() y el cambio de contraseña hacen bump → todos los JWT emitidos
+    // con la versión anterior dejan de servir inmediatamente.
+    if (session.tokenVersion !== user.tokenVersion) return null;
+
     return user;
   } catch (error) {
     console.error("[auth] No se pudo cargar el usuario actual:", error);
     return null;
   }
 });
+
+/** Invalida TODAS las sesiones activas del usuario (logout, reset de contraseña). */
+export async function bumpTokenVersion(userId: string): Promise<void> {
+  await prisma.user.update({
+    where: { id: userId },
+    data: { tokenVersion: { increment: 1 } },
+  });
+}
 
 /** Requiere sesión; redirige a /login si no la hay. */
 export async function requireUser() {
@@ -126,22 +141,15 @@ export async function clearSession() {
   store.delete(SESSION_COOKIE);
 }
 
-/** Cambia el negocio activo (multi-empresa). */
+/**
+ * En este producto cada usuario tiene un perfil propio y no debe alternar
+ * entre negocios desde la sesión. Se bloquea para evitar cambios accidentales.
+ */
 export async function switchBusiness(businessId: string) {
+  void businessId;
   const user = await getCurrentUser();
   if (!user) return false;
 
-  try {
-    const membership = await prisma.businessUser.findFirst({
-      where: { userId: user.id, businessId, isActive: true },
-    });
-    if (!membership) return false;
-
-    const session = await getSession();
-    await setSession({ ...(session ?? {}), userId: user.id, businessId });
-    return true;
-  } catch (error) {
-    console.error("[auth] No se pudo cambiar de negocio:", error);
-    return false;
-  }
+  console.warn("[auth] Cambio de negocio bloqueado: el usuario no puede alternar negocios en este perfil.");
+  return false;
 }

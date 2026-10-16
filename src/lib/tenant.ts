@@ -51,7 +51,11 @@ function hasOwnWhere(model: string): boolean {
  * explícitos). Si el where es un array de OR/operadores, lo envuelve con AND.
  * Usado en operaciones de lectura y en updateMany/deleteMany (aceptan `AND`).
  */
-function scopeWhere(model: string, where: any, businessId: string): any {
+function scopeWhere(
+  model: string,
+  where: Record<string, unknown> | undefined,
+  businessId: string,
+) {
   if (!where) return { businessId };
   if (where.businessId !== undefined) return where;
   return { AND: [where, { businessId }] };
@@ -63,7 +67,11 @@ function scopeWhere(model: string, where: any, businessId: string): any {
  * raíz junto al campo único (p. ej. `{ id, businessId }`), que Prisma acepta
  * en where único. Esto preserva la unicidad y añade el aislamiento por tenant.
  */
-function scopeUniqueWhere(model: string, where: any, businessId: string): any {
+function scopeUniqueWhere(
+  model: string,
+  where: Record<string, unknown> | undefined,
+  businessId: string,
+) {
   if (!where) return { businessId };
   if (where.businessId !== undefined) return where;
   return { ...where, businessId };
@@ -129,7 +137,7 @@ export function scopedPrisma(businessId: string) {
         },
         async update({ model, args, query }) {
           if (!isTenantModel(model)) return query(args);
-          args.where = scopeUniqueWhere(model, args.where, businessId);
+          args.where = scopeUniqueWhere(model, args.where, businessId) as typeof args.where;
           return query(args);
         },
         async updateMany({ model, args, query }) {
@@ -139,7 +147,7 @@ export function scopedPrisma(businessId: string) {
         },
         async delete({ model, args, query }) {
           if (!isTenantModel(model)) return query(args);
-          args.where = scopeUniqueWhere(model, args.where, businessId);
+          args.where = scopeUniqueWhere(model, args.where, businessId) as typeof args.where;
           return query(args);
         },
         async deleteMany({ model, args, query }) {
@@ -149,7 +157,7 @@ export function scopedPrisma(businessId: string) {
         },
         async upsert({ model, args, query }) {
           if (!isTenantModel(model)) return query(args);
-          args.where = scopeUniqueWhere(model, args.where, businessId);
+          args.where = scopeUniqueWhere(model, args.where, businessId) as typeof args.where;
           if (args.create && (args.create as Record<string, unknown>).businessId === undefined) {
             (args.create as Record<string, unknown>).businessId = businessId;
           }

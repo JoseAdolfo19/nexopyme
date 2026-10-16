@@ -5,7 +5,6 @@ import { getCurrentUser, getSession } from "@/lib/auth";
 import { logoutAction } from "@/app/actions/auth";
 import { prisma } from "@/lib/prisma";
 import { MODULE_MENU, businessTypeLabel } from "@/lib/constants";
-import BusinessSwitcher from "@/components/BusinessSwitcher";
 import SidebarNav from "@/components/SidebarNav";
 
 export default async function AppShell({
@@ -28,13 +27,6 @@ export default async function AppShell({
     });
     modules = (business?.modules as string[]) ?? [];
   }
-
-  // Si el usuario tiene negocios pero no hay uno activo, mostrar selector.
-  const userBusinesses = await prisma.businessUser.findMany({
-    where: { userId: user.id, isActive: true },
-    include: { business: { select: { id: true, name: true } } },
-    orderBy: { createdAt: "desc" },
-  });
 
   const menuItems = modules
     .map((m) => MODULE_MENU[m])
@@ -60,16 +52,6 @@ export default async function AppShell({
               </span>
             )}
           </Link>
-
-          {userBusinesses.length > 1 && (
-            <BusinessSwitcher
-              businesses={userBusinesses.map((ub) => ({
-                id: ub.business.id,
-                name: ub.business.name,
-              }))}
-              currentId={businessId ?? ""}
-            />
-          )}
 
           <div className="flex items-center gap-2">
             <Link href="/perfil" className="hidden text-sm font-medium text-neutral-600 hover:text-brand-600 sm:block">{user.name}</Link>

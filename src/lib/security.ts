@@ -3,48 +3,12 @@ import "server-only";
 import { headers } from "next/headers";
 
 /**
- * Utilidades de seguridad compartidas: rate limiting en memoria y
- * verificación de origen (CSRF, defensa en profundidad).
+ * Utilidades de seguridad compartidas: verificación de origen (CSRF, defensa
+ * en profundidad) y límites de los flujos de autenticación.
  *
- * NOTA: El rate limiter es en memoria (una sola instancia). Para entornos
- * multi-instancia o distribuidos debe sustituirse por un almacén compartido
- * (Redis, o tabla en BD). Para dev / etapa inicial es suficiente.
+ * El rate limiting vive en rateLimitDb.ts (persistente en BD, apto para
+ * entornos multi-instancia como Vercel).
  */
-
-type Bucket = { count: number; resetAt: number };
-
-const buckets = new Map<string, Bucket>();
-
-/** Limpia buckets caducados periódicamente para evitar fugas de memoria. */
-setInterval(() => {
-  const now = Date.now();
-  for (const [k, b] of buckets) {
-    if (b.resetAt <= now) buckets.delete(k);
-  }
-}, 60_000).unref?.();
-
-/**
- * Aplica límite de intentos por clave. Devuelve `{ ok, retryAfterMs }`.
- * - key:  identificador único (p.ej. `login:email+ip`).
- * - limit: máx. intentos en la ventana.
- * - windowMs: duración de la ventana en milisegundos.
- */
-export function rateLimit(
-  key: string,
-  opts: { limit: number; windowMs: number },
-): { ok: boolean; retryAfterMs: number } {
-  const now = Date.now();
-  const bucket = buckets.get(key);
-  if (!bucket || bucket.resetAt <= now) {
-    buckets.set(key, { count: 1, resetAt: now + opts.windowMs });
-    return { ok: true, retryAfterMs: 0 };
-  }
-  if (bucket.count >= opts.limit) {
-    return { ok: false, retryAfterMs: bucket.resetAt - now };
-  }
-  bucket.count += 1;
-  return { ok: true, retryAfterMs: 0 };
-}
 
 /** Devuelve la IP del cliente (con fallback a "local" en dev). */
 export async function getClientIp(): Promise<string> {

@@ -17,7 +17,21 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: npx prisma generate
       - run: npm run lint
+
+  typecheck:
+    name: Type check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx tsc --noEmit
 
   test:
     name: Unit tests
@@ -29,6 +43,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: npx prisma generate
       - run: npm test
 
   build:
@@ -39,9 +54,9 @@ jobs:
         image: mysql:8.4
         env:
           MYSQL_ROOT_PASSWORD: root
-          MYSQL_DATABASE: tiendaplus
-          MYSQL_USER: tiendaplus
-          MYSQL_PASSWORD: tiendaplus
+          MYSQL_DATABASE: nexopyme
+          MYSQL_USER: nexopyme
+          MYSQL_PASSWORD: nexopyme
         ports:
           - 3306:3306
         options: >-
@@ -51,7 +66,7 @@ jobs:
           --health-retries=20
     env:
       # BD local del servicio MySQL del runner.
-      DATABASE_URL: mysql://tiendaplus:tiendaplus@127.0.0.1:3306/tiendaplus
+      DATABASE_URL: mysql://nexopyme:nexopyme@127.0.0.1:3306/nexopyme
       AUTH_SECRET: ci-placeholder-secret-at-least-16-chars
     steps:
       - uses: actions/checkout@v4

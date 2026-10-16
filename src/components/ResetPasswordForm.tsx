@@ -5,6 +5,7 @@ import { useActionState } from "react";
 import { resetPasswordAction } from "@/app/actions/auth";
 import { Input } from "@/components/ui/Field";
 import { SubmitButton } from "@/components/ui/Button";
+import { FormAlert } from "@/components/ui/FormAlert";
 
 export default function ResetPasswordForm({ token }: { token: string }) {
   const [state, action] = useActionState(resetPasswordAction, {});
@@ -37,7 +38,7 @@ export default function ResetPasswordForm({ token }: { token: string }) {
       <Input label="Repite la nueva contraseña" name="password_confirm" type="password" placeholder="Repite tu contraseña" autoComplete="new-password" required minLength={8} />
 
       {state.error && (
-        <p className="rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700">{state.error}</p>
+        <FormAlert type="error" title="No se pudo actualizar la contraseña" message={state.error} />
       )}
 
       <SubmitButton fullWidth size="lg">

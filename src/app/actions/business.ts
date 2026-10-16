@@ -1,11 +1,11 @@
-"use server";
+﻿"use server";
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { branchSchema, businessSchema } from "@/lib/validations";
 import { modulesForType, PLAN_CATALOG } from "@/lib/constants";
-import { getCurrentUser, getSession, requireBusiness, setSession, switchBusiness } from "@/lib/auth";
+import { getCurrentUser, getSession, requireBusiness, setSession } from "@/lib/auth";
 import { slugify } from "@/lib/format";
 import { audit } from "@/lib/audit";
 import { getBusinessPlan } from "@/lib/plans";
@@ -17,7 +17,7 @@ export async function createBusinessAction(
   formData: FormData
 ): Promise<ActionResult> {
   const user = await getCurrentUser();
-  if (!user) return { error: "Sesión no válida. Vuelve a ingresar." };
+  if (!user) return { error: "SesiÃ³n no vÃ¡lida. Vuelve a ingresar." };
 
   const parsed = businessSchema.safeParse({
     name: formData.get("name"),
@@ -41,7 +41,7 @@ export async function createBusinessAction(
 
   const data = parsed.data;
 
-  // Slug único
+  // Slug Ãºnico
   const baseSlug = slugify(data.name) || "negocio";
   let slug = baseSlug;
   let counter = 1;
@@ -49,7 +49,7 @@ export async function createBusinessAction(
     slug = `${baseSlug}-${counter++}`;
   }
 
-  // Configuración inteligente de módulos según el tipo de negocio + respuestas
+  // ConfiguraciÃ³n inteligente de mÃ³dulos segÃºn el tipo de negocio + respuestas
   const modules = modulesForType(data.businessType);
 
   if (data.needsAppointments === "no") {
@@ -96,7 +96,7 @@ export async function createBusinessAction(
     },
   };
 
-  // Crear negocio en una transacción: negocio + membresía + sucursal principal
+  // Crear negocio en una transacciÃ³n: negocio + membresÃ­a + sucursal principal
   const business = await prisma.$transaction(async (tx) => {
     const biz = await tx.business.create({
       data: {
@@ -152,9 +152,9 @@ export async function createBusinessAction(
     return biz;
   });
 
-  // Activar negocio en la sesión
+  // Activar negocio en la sesiÃ³n
   const session = await getSession();
-  await setSession({ ...(session ?? {}), userId: user.id, businessId: business.id });
+  await setSession({ ...(session ?? {}), userId: user.id, businessId: business.id, tokenVersion: user.tokenVersion });
 
   await audit({
     action: "business.create",
@@ -209,10 +209,8 @@ export async function createBranchAction(
   return { ok: true };
 }
 
-export async function switchBusinessAction(formData: FormData): Promise<void> {
-  const to = String(formData.get("business") ?? "");
-  // switchBusiness() (en auth) verifica que el usuario pertenezca al negocio
-  // antes de cambiar la sesión, evitando acceso a negocios ajenos.
-  const ok = await switchBusiness(to);
-  redirect(ok ? "/dashboard" : "/onboarding");
+export async function switchBusinessAction(): Promise<void> {
+  // En el perfil del usuario no se permite cambiar de negocio.
+  // Si se intenta, se mantiene el negocio actual y se evita el cambio de tenant.
+  redirect("/dashboard");
 }

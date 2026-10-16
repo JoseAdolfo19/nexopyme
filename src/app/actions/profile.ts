@@ -1,10 +1,10 @@
-"use server";
+﻿"use server";
 
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { rateLimit } from "@/lib/security";
+import { checkRateLimit } from "@/lib/rateLimitDb";
 
 export type ProfileActionResult = { error?: string; ok?: boolean };
 
@@ -13,7 +13,7 @@ export async function updateProfileAction(
   formData: FormData,
 ): Promise<ProfileActionResult> {
   const user = await getCurrentUser();
-  if (!user) return { error: "Sesión no válida." };
+  if (!user) return { error: "SesiÃ³n no vÃ¡lida." };
 
   const name = String(formData.get("name") ?? "").trim();
   const currentPassword = String(formData.get("current_password") ?? "");
@@ -22,17 +22,17 @@ export async function updateProfileAction(
   if (name.length < 2) return { error: "El nombre debe tener al menos 2 caracteres." };
 
   if (newPassword) {
-    // Limitar intentos de cambio de contraseña por usuario (fuerza bruta
-    // de la contraseña actual).
-    const rl = rateLimit(`profile-password:${user.id}`, { limit: 5, windowMs: 15 * 60_000 });
+    // Limitar intentos de cambio de contraseÃ±a por usuario (fuerza bruta
+    // de la contraseÃ±a actual).
+    const rl = await checkRateLimit(`profile-password:${user.id}`, { limit: 5, windowMs: 15 * 60_000 });
     if (!rl.ok) {
-      return { error: "Demasiados intentos para cambiar la contraseña. Espera unos minutos." };
+      return { error: "Demasiados intentos para cambiar la contraseÃ±a. Espera unos minutos." };
     }
     if (newPassword.length < 8) {
-      return { error: "La nueva contraseña debe tener al menos 8 caracteres." };
+      return { error: "La nueva contraseÃ±a debe tener al menos 8 caracteres." };
     }
     if (!(await bcrypt.compare(currentPassword, user.passwordHash))) {
-      return { error: "La contraseña actual no es correcta." };
+      return { error: "La contraseÃ±a actual no es correcta." };
     }
   }
 
@@ -48,3 +48,4 @@ export async function updateProfileAction(
   revalidatePath("/dashboard");
   return { ok: true };
 }
+

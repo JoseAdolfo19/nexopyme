@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireBusiness } from "@/lib/auth";
 import { scope } from "@/lib/prisma";
 import { formatSoles, formatNumber, formatDateTime } from "@/lib/format";
+import { round2 } from "@/lib/sunat";
 import { DOCUMENT_STATUS, MODULE_MENU } from "@/lib/constants";
 import { Card, CardHeader, Badge } from "@/components/ui/Card";
 import AppShell from "@/components/AppShell";
@@ -66,7 +67,10 @@ export default async function DashboardPage() {
     }),
   ]);
 
-  const profit = (Number(profitMonth._sum.subtotal ?? 0) - Number(profitMonth._sum.cost ?? 0)) * 0.35; // ganancia bruta estimada simple
+  // Ganancia bruta real del mes: los precios llevan IGV incluido, así que el
+  // ingreso neto es el subtotal / 1.18; el costo viene de cada item vendido.
+  const revenueNet = Number(profitMonth._sum.subtotal ?? 0) / 1.18;
+  const profit = round2(revenueNet - Number(profitMonth._sum.cost ?? 0));
   const todaySales = Number(salesToday._sum.total ?? 0);
 
   const menu = modules
@@ -88,7 +92,7 @@ export default async function DashboardPage() {
       <div className="grid grid-cols-2 gap-3">
         <StatCard emoji="💵" label="Ventas de hoy" value={formatSoles(todaySales)} sub={`${salesToday._count} ventas`} />
         <StatCard emoji="📅" label="Ventas del mes" value={formatSoles(Number(salesMonth._sum.total ?? 0))} sub={`${salesMonth._count} ventas`} />
-        <StatCard emoji="📈" label="Ganancia estimada del mes" value={formatSoles(profit)} sub="Estimación simple" />
+        <StatCard emoji="📈" label="Ganancia del mes" value={formatSoles(profit)} sub="Margen sobre costo de compra" />
         <StatCard emoji="🧾" label="Productos vendidos" value={formatNumber(Number(productsSold._sum.quantity ?? 0))} sub="Este mes" />
       </div>
 

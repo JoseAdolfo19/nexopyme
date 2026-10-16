@@ -1,6 +1,6 @@
-import "dotenv/config";
+﻿import "dotenv/config";
+import { createDb } from "./db";
 import { randomBytes } from "node:crypto";
-import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { modulesForType, PLAN_CATALOG } from "../src/lib/constants";
 import bcrypt from "bcryptjs";
@@ -9,8 +9,8 @@ const TEST_EMAIL = process.env.TEST_USER_EMAIL ?? "pruebas@tiendaplus.test";
 const TEST_PASSWORD = process.env.TEST_USER_PASSWORD ?? randomBytes(12).toString("base64url");
 const TEST_BUSINESS_SLUG = "negocio-pruebas";
 
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
-const prisma = new PrismaClient({ adapter });
+const prisma: PrismaClient = createDb();
+
 
 async function main() {
   const passwordHash = await bcrypt.hash(TEST_PASSWORD, 12);
@@ -90,16 +90,16 @@ async function main() {
     return demoBusiness;
   });
 
-  console.log("\n✅ Usuario de pruebas listo");
+  console.log("\nâœ… Usuario de pruebas listo");
   console.log(`Correo: ${user.email}`);
-  console.log(`Contraseña: ${TEST_PASSWORD}`);
+  console.log(`ContraseÃ±a: ${TEST_PASSWORD}`);
   console.log(`Negocio: ${business.name}`);
-  console.log("Cuenta verificada: sí");
+  console.log("Cuenta verificada: sÃ­");
 }
 
 main()
   .catch((error) => {
-    console.error("❌ No se pudo crear el usuario de pruebas:", error);
+    console.error("âŒ No se pudo crear el usuario de pruebas:", error);
     process.exitCode = 1;
   })
   .finally(async () => {

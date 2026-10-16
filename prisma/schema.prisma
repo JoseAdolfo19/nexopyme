@@ -20,6 +20,7 @@ model User {
   emailVerified DateTime?
   isActive      Boolean  @default(true)
   isSuperAdmin  Boolean  @default(false)
+  tokenVersion  Int      @default(0)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -483,4 +484,16 @@ model AuditLog {
 
   @@index([businessId, createdAt])
   @@map("audit_logs")
+}
+// ==================== RATE LIMITS ====================
+
+// Contador de intentos por clave (p.ej. login:email:ip) que persiste en BD
+// para que funcione en entornos multi-instancia como Vercel.
+model RateLimitHit {
+  key       String   @id
+  hits      Int      @default(1)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@map("rate_limit_hits")
 }

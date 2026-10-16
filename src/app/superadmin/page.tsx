@@ -5,7 +5,7 @@ import { requireSuperAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { logoutAction } from "@/app/actions/auth";
 import { businessTypeLabel } from "@/lib/constants";
-import { formatSoles } from "@/lib/format";
+import { formatSoles, formatDateTime } from "@/lib/format";
 import { Card, CardHeader } from "@/components/ui/Card";
 import { PLAN_CATALOG } from "@/lib/constants";
 import PlanAssignmentForm from "@/components/PlanAssignmentForm";
@@ -14,7 +14,7 @@ export const metadata: Metadata = { title: "Panel global" };
 
 export default async function SuperAdminPage() {
   const user = await requireSuperAdmin();
-  const [businesses, users, salesSummary, documents] = await Promise.all([
+  const [businesses, users, salesSummary, documents, auditLogs] = await Promise.all([
     prisma.business.findMany({
       select: {
         id: true,
@@ -36,6 +36,14 @@ export default async function SuperAdminPage() {
     prisma.user.count(),
     prisma.sale.aggregate({ _sum: { total: true }, _count: true }),
     prisma.document.count(),
+    prisma.auditLog.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 50,
+      include: {
+        user: { select: { name: true, email: true } },
+        business: { select: { name: true } },
+      },
+    }),
   ]);
 
   return (
@@ -118,6 +126,59 @@ export default async function SuperAdminPage() {
                     <td className="px-5 py-4 text-right text-neutral-700">{business._count.users}</td>
                     <td className="px-5 py-4 text-right text-neutral-700">{business._count.sales}</td>
                     <td className="px-5 py-4 text-right text-neutral-700">{business._count.documents}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+
+        <Card>
+          <CardHeader
+            title="Actividad reciente"
+            subtitle="Últimas 50 acciones registradas por el sistema de auditoría"
+          />
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[760px] text-left text-sm">
+              <thead className="border-b border-neutral-100 text-xs uppercase text-neutral-500">
+                <tr>
+                  <th className="px-5 py-3">Fecha</th>
+                  <th className="px-5 py-3">Acción</th>
+                  <th className="px-5 py-3">Usuario</th>
+                  <th className="px-5 py-3">Empresa</th>
+                  <th className="px-5 py-3">Entidad</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-neutral-100">
+                {auditLogs.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="px-5 py-8 text-center text-neutral-500">
+                      Aún no hay actividad registrada.
+                    </td>
+                  </tr>
+                )}
+                {auditLogs.map((log) => (
+                  <tr key={log.id} className="hover:bg-neutral-50">
+                    <td className="px-5 py-3 text-neutral-500">{formatDateTime(log.createdAt)}</td>
+                    <td className="px-5 py-3">
+                      <span className="rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-semibold text-neutral-700">
+                        {log.action}
+                      </span>
+                    </td>
+                    <td className="px-5 py-4">
+                      {log.user ? (
+                        <>
+                          <p className="text-neutral-800">{log.user.name}</p>
+                          <p className="text-xs text-neutral-500">{log.user.email}</p>
+                        </>
+                      ) : (
+                        <span className="text-neutral-400">Sistema</span>
+                      )}
+                    </td>
+                    <td className="px-5 py-3 text-neutral-600">{log.business?.name ?? "—"}</td>
+                    <td className="px-5 py-3 text-neutral-500">
+                      {log.entityType ? `${log.entityType}${log.entityId ? ` · ${log.entityId.slice(0, 12)}…` : ""}` : "—"}
+                    </td>
                   </tr>
                 ))}
               </tbody>

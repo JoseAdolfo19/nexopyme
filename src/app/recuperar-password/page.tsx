@@ -5,6 +5,7 @@ import Link from "next/link";
 import { requestPasswordResetAction } from "@/app/actions/auth";
 import { Input } from "@/components/ui/Field";
 import { SubmitButton } from "@/components/ui/Button";
+import { FormAlert } from "@/components/ui/FormAlert";
 
 export default function ForgotPasswordPage() {
   const [state, action] = useActionState(requestPasswordResetAction, {});
@@ -29,14 +30,15 @@ export default function ForgotPasswordPage() {
           <Input label="Correo electrónico" name="email" type="email" placeholder="tucorreo@ejemplo.com" autoComplete="email" required />
 
           {state.error && (
-            <p className="rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700">{state.error}</p>
+            <FormAlert type="error" title="No pudimos enviar el enlace" message={state.error} />
           )}
 
           {state.ok && (
-            <p className="rounded-xl bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
-              Si el correo tiene una cuenta, te enviamos un enlace de recuperación. Revisa tu bandeja
-              de entrada y la carpeta de spam.
-            </p>
+            <FormAlert
+              type="success"
+              title="Listo"
+              message="Si el correo tiene una cuenta, te enviamos un enlace de recuperación. Revisa tu bandeja de entrada y la carpeta de spam."
+            />
           )}
 
           {state.devUrl && (

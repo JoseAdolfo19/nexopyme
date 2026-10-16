@@ -9,6 +9,8 @@ CREATE TABLE "users" (
     "passwordHash" TEXT NOT NULL,
     "emailVerified" TIMESTAMP(3),
     "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "isSuperAdmin" BOOLEAN NOT NULL DEFAULT false,
+    "tokenVersion" INTEGER NOT NULL DEFAULT 0,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -180,6 +182,7 @@ CREATE TABLE "sales" (
     "tax" DECIMAL(12,2) NOT NULL DEFAULT 0,
     "total" DECIMAL(12,2) NOT NULL DEFAULT 0,
     "paymentMethod" TEXT NOT NULL DEFAULT 'efectivo',
+    "docType" TEXT,
     "status" TEXT NOT NULL DEFAULT 'completada',
     "notes" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -325,6 +328,8 @@ CREATE TABLE "plans" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "code" TEXT NOT NULL,
+    "audience" TEXT,
+    "summary" TEXT,
     "price" DECIMAL(10,2) NOT NULL DEFAULT 0,
     "limits" JSONB,
     "features" JSONB,
@@ -363,6 +368,16 @@ CREATE TABLE "audit_logs" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "audit_logs_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "rate_limit_hits" (
+    "key" TEXT NOT NULL,
+    "hits" INTEGER NOT NULL DEFAULT 1,
+    "expiresAt" TIMESTAMP(3) NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "rate_limit_hits_pkey" PRIMARY KEY ("key")
 );
 
 -- CreateIndex
